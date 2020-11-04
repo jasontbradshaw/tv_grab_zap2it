@@ -1,0 +1,355 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+require 'json'
+require 'net/http'
+require 'optparse'
+require 'ostruct'
+require 'pathname'
+require 'uri'
+
+# Apparent zap2it API
+# * url = 'https://tvlistings.zap2it.com/api/program/overviewDetails'; data = 'programSeriesID=' + EPseries
+# * 'http://tvlistings.zap2it.com/api/grid?lineupId=&timespan=3&headendId=' + lineupcode + '&country=' + country + '&device=' + device + '&postalCode=' + zipcode + '&time=' + str(gridtime) + '&pref=-&userId=-'
+# * 'https://tvlistings.zap2it.com/gapzap_webapi/api/Providers/getPostalCodeProviders/USA/' + zipcodeNew + '/gapzap/en'
+# * 'https://tvlistings.zap2it.com/gapzap_webapi/api/Providers/getPostalCodeProviders/CAN/' + zipcodeNew + '/gapzap/en'
+
+XMLTV_DESCRIPTION = 'USA/Canada (zap2it.com)'
+XMLTV_CAPABILITIES = [
+  'baseline',
+  'cache',
+].freeze
+
+# Useful time constants for obtaining a number of seconds via multiplication.
+class TimeInterval
+  SECONDS = 1
+  MINUTES = 60 * SECONDS
+  HOURS = 60 * MINUTES
+  DAYS = 24 * HOURS
+  WEEKS = 7 * DAYS
+end.freeze
+
+# Ensures the given value is non-`nil`. If a block was given, also ensures that
+# said block returns `nil`, but only assuming the value was non-`nil` to begin
+# with. If the block returns non-`nil`, uses the returned value in the error
+# message.
+#
+# Returns the validated value.
+def ensure_argument!(
+  name, # String
+  value # any
+) # typeof value
+  if value.nil?
+    raise ArgumentError, "#{name} is required"
+  end
+
+  error_message =
+    if block_given?
+      yield
+    else
+      nil
+    end
+
+  unless error_message.nil?
+    raise ArgumentError, "Invalid value for #{name}: #{error_message}"
+  end
+
+  value
+end
+
+# A lineup provider
+class Provider
+  attr_reader :lineup_id, :name, :type
+
+  def initialize(
+    lineup_id: nil, # String
+    name: nil, # String
+    type: nil # String
+  )
+    @lineup_id = ensure_argument!('lineup_id', lineup_id)
+    @name = ensure_argument!('name', name)
+    @type = ensure_argument!('type', type).downcase.to_sym
+  end
+end
+
+# Recursively convert all hashes contained in the given value to `OpenStruct`
+# objects, leaving everything else unchanged.
+def to_deep_openstruct(
+  value # any
+)
+  if value.is_a?(Hash)
+    OpenStruct.new(
+      value.each_with_object({}) do |(key, val), all|
+        all[key] = to_deep_openstruct(val)
+      end
+    )
+  elsif value.is_a?(Array)
+    value.map { |val| to_deep_openstruct(val) }
+  else
+    value
+  end
+end
+
+# Parse the configuration from the command line options.
+def parse_config_from_args(
+  args # An arguments array, typically `ARGV`.
+)
+  config = OpenStruct.new({
+    # If `true`, the program should output its description and exit.
+    return_description?: false,
+
+    # If `true`, the program should output its XMLTV capabilities and exit.
+    return_capabilities?: false,
+
+    # Whether to suppress non-error output.
+    quiet?: false,
+
+    # The file to which the final XML should be written. If `nil`, the XML is
+    # written to standard output.
+    output_filename: nil, # Pathname | nil
+
+    # The number of days of data to obtain, default "all available".
+    days_to_download: 999,
+
+    # The number of days from today at which to start downloading data. The
+    # default 0 is "today", 1 is "tomorrow", etc.
+    day_offset: 0,
+
+    # A file in which to cache downloaded information for future use in lieu of
+    # hitting the network. If not provided, no cache is used.
+    cache_filename: nil,
+
+    # Whether channel icons should be downloaded and written to the given
+    # directory. If no path is given, channel icons won't be downloaded.
+    channel_icon_path: nil, # Pathname | nil
+
+    # If specified, downloads and outputs available TV lineups for later use
+    # with the `lineup_id` configuration option.
+    return_lineup_info: nil, # [Symbol, String], e.g. `[:USA, '12345']` or `[:CAN, 'A1A 1A1']`
+
+    # The lineup id for which to download guide data.
+    lineup_id: nil, # String
+  })
+
+  OptionParser.new do |opts|
+    opts.on('--config-file', 'The path to the (optional) configuration file for this grabber') do |p|
+      Pathname
+        .new(p)
+        .realpath
+
+      # TODO: Read configuration from the given file prior to parsing future
+      # options and add it directly to `config`, overwriting existing values.
+      #
+      # Doing this, reading the configuration file applies a "base" set of
+      # configuration options starting from wherever it appeared in the
+      # arguments order!
+    end
+
+    ############################################################################
+    # XMLTV OPTIONS
+    ############################################################################
+
+    #
+    # Minimum required options
+    #
+
+    opts.on('--description', 'Output an XMLTV description and exit.') do
+      config[:return_description?] = true
+    end
+
+    opts.on('--capabilities', 'Output XMLTV capabilities and exit.') do
+      config[:return_capabilities?] = true
+    end
+
+    #
+    # `baseline` options
+    #
+
+    opts.on('--quiet', 'Suppress non-error output.') do
+      config[:quiet?] = true
+    end
+
+    opts.on('--output', 'If given, output will be written to this file instead of standard output') do |p|
+      config.output_filename = Pathname
+        .new(p)
+        .realpath
+    end
+
+    opts.on('--days DAYS', 'The number of days of data to obtain, default "as many as are available"') do |d|
+      config.days_to_download = Integer(d, 10)
+    end
+
+    opts.on('--offset OFFSET', 'Start downloading data on the date this many days from today. Default is 0, i.e. "today", 1 is "tomorrow", etc.') do |o|
+      config.day_offset = Integer(o, 10)
+    end
+
+    #
+    # `cache` options
+    #
+
+    opts.on('--cache PATH', 'A file in which to store data for use across invocations to help avoid hitting the network for previously-downloaded data.') do |p|
+      config.cache_filename = Pathname
+        .new(p)
+        .realpath
+    end
+
+    ############################################################################
+    # CONFIGURATION OPTIONS
+    ############################################################################
+
+    opts.on('--channel-icon-path PATH', 'If specified, channel icons are output to this directory.') do |p|
+      config.channel_icon_path = Pathname
+        .new(p)
+        .realpath
+    end
+
+    opts.on('--lineup-info INFO', 'If specified, outputs lineup inforamtion for the given country and postal code combination, e.g. `USA:12345` or `CAN:A1A 1A1`.') do |s|
+      raw_country, postal_code = s
+        .strip
+        .split(':')
+        .map(&:strip)
+
+      country = raw_country
+        .upcase
+        .to_sym
+
+      unless [:USA, :CAN].include?(country)
+        raise ArgumentError, "Invalid country: #{raw_country.inspect}"
+      end
+
+      config.return_lineup_info = [country, postal_code]
+    end
+  end.parse(args)
+
+  config
+end
+
+# Makes a GET request to the secure `tvlistings.zap2it.com` domain and returns
+# the JSON response converted to a deep `OpenStruct`. If the request fails or
+# its response body can't be parsed, raises an `IOError`.
+def fetch(
+  *path, # Array<any>
+  query: {}, # Hash<Symbol, any>
+  cache_filename: nil, # Pathname | nil
+  cache_ttl_seconds: nil # Integer | nil
+) # Hash<Symbol, JSON> | Array<JSON>
+  full_path = File.join(
+    'https://tvlistings.zap2it.com',
+    *path.map(&:to_s),
+  )
+
+  uri =
+    begin
+      u = URI.parse(full_path)
+      u.query = URI.encode_www_form(query.to_a)
+      u
+    rescue URI::InvalidURIError => err
+      raise ArgumentError, "Invalid URI from path #{full_path.inspect}: #{err}"
+    end
+
+  # TODO: Read from the cache instead if one was specified!
+
+  res = Net::HTTP.get_response(uri)
+  unless res.is_a?(Net::HTTPSuccess)
+    raise IOError, "Got HTTP #{response.code} from #{uri}: #{response.message}"
+  end
+
+  json =
+    begin
+      raw_json = res.body
+      JSON.parse(raw_json, symbolize_names: true)
+    rescue JSON::ParserError => err
+      raise IOError, "Failed to parse HTTP response from #{uri}: #{err}"
+    end
+
+  to_deep_openstruct(json)
+end
+
+# Downloads and returns lineup data for the given country and postal code.
+def fetch_lineup_info(
+  country, # :USA | :CAN
+  postal_code, # String, e.g. `12345` or `A1A 1A1`
+  cache_filename: nil # Pathname | nil
+) # Array<Provider>
+  lineup_json = fetch(
+    'gapzap_webapi/api/Providers/getPostalCodeProviders',
+    country,
+    postal_code,
+    'gapzap/en',
+
+    # This response is expected to change very infrequently, if ever.
+    cache_ttl_seconds: 1 * TimeInterval::WEEKS,
+    cache_filename: cache_filename,
+  )
+
+  lineup_json
+    .Providers
+    .sort_by { |p| [p.type, p.name] }
+    .map do |p|
+      Provider.new(
+        lineup_id: p.lineupId,
+        name: p.name,
+        type: p.type,
+      )
+    end
+end
+
+# Downloads and returns all the data for the given date, if possible.
+def fetch_lineup_for_date(
+  date, # Date
+  lineup_id, # String
+  cache_filename: nil # Pathname | nil
+)
+  raise 'TODO: fetch_data_for_date'
+end
+
+def main!
+  config = parse_config_from_args(ARGV).freeze
+
+  # Output our XMLTV description and exit.
+  if config.return_description?
+    $stdout.puts(XMLTV_DESCRIPTION)
+    return
+  end
+
+  # Output our XMLTV capabilities and exit.
+  if config.return_capabilities?
+    XMLTV_CAPABILITIES.each do |capability|
+      $stdout.puts(capability)
+    end
+    return
+  end
+
+  # Download and print out the configured lineup information, then exit.
+  unless config.return_lineup_info.nil?
+    country, postal_code = config.return_lineup_info
+    providers = fetch_lineup_info(country, postal_code)
+
+    longest_lineup_name_size = providers
+      .map(&:name)
+      .map(&:size)
+      .max
+
+    longest_lineup_type_size = providers
+      .map(&:type)
+      .map(&:to_s)
+      .map(&:size)
+      .max
+
+    name_header_text = 'NAME'
+    name_column_width = [name_header_text.size, longest_lineup_name_size].max
+
+    type_header_text = 'TYPE'
+    type_column_width = [type_header_text.size, longest_lineup_type_size].max
+
+    $stdout.puts("#{name_header_text.ljust(name_column_width)}  #{type_header_text.ljust(type_column_width)}  ID")
+    providers.each do |p|
+      $stdout.puts("#{p.name.ljust(name_column_width)}  #{p.type.to_s.ljust(type_column_width)}  #{p.lineup_id}")
+    end
+
+    return
+  end
+end
+
+if __FILE__ == $0
+  main!
+end
