@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
+require 'digest'
 require 'json'
 require 'net/http'
 require 'optparse'
@@ -8,10 +9,25 @@ require 'pathname'
 require 'uri'
 
 # Apparent zap2it API
-# * url = 'https://tvlistings.zap2it.com/api/program/overviewDetails'; data = 'programSeriesID=' + EPseries
+# * 'https://tvlistings.zap2it.com/api/program/overviewDetails'; data = 'programSeriesID=' + EPseries
 # * 'http://tvlistings.zap2it.com/api/grid?lineupId=&timespan=3&headendId=' + lineupcode + '&country=' + country + '&device=' + device + '&postalCode=' + zipcode + '&time=' + str(gridtime) + '&pref=-&userId=-'
-# * 'https://tvlistings.zap2it.com/gapzap_webapi/api/Providers/getPostalCodeProviders/USA/' + zipcodeNew + '/gapzap/en'
-# * 'https://tvlistings.zap2it.com/gapzap_webapi/api/Providers/getPostalCodeProviders/CAN/' + zipcodeNew + '/gapzap/en'
+
+PROGRAM_NAME = 'tv_grab_zap2it'
+VERSION = '0.0.1'
+
+# Compute a truncated SHA-512 digest of the current file and use this as our
+# release identifier. Since the entire program is in a single file, this is
+# guaranteed to provide a unique and stable value for each "build".
+RELEASE =
+  begin
+    file_data = File.read(Pathname.new(__FILE__).realpath)
+
+    hash = Digest::SHA2
+      .new(512)
+      .hexdigest(file_data)
+
+    hash[0..8]
+  end
 
 XMLTV_DESCRIPTION = 'USA/Canada (zap2it.com)'
 XMLTV_CAPABILITIES = [
@@ -106,6 +122,8 @@ def parse_config_from_args(
   args # An arguments array, typically `ARGV`.
 )
   config = OpenStruct.new({
+    option_parser: nil, # The `OptionsParser` instance that parsed this config.
+
     # If `true`, the program should output its description and exit.
     return_description?: false,
 
@@ -134,26 +152,49 @@ def parse_config_from_args(
     # directory. If no path is given, channel icons won't be downloaded.
     channel_icon_path: nil, # Pathname | nil
 
-    # If specified, downloads and outputs available TV lineups for later use
-    # with the `lineup_id` configuration option.
-    return_lineup_info: nil, # [Symbol, String], e.g. `[:USA, '12345']` or `[:CAN, 'A1A 1A1']`
+    # If specified, downloads and outputs available TV lineups and their ids for
+    # later use with the `lineup_id` configuration option.
+    return_lineup_info?: false,
+
+    # If specified, outputs the program's version info and exits.
+    return_version_info?: false,
+
+    # If specified, outputs the program's help text and exits.
+    return_help_text?: false,
+
+    # The country for which to fetch data.
+    country: nil, # :USA | :CAN
+
+    # The postal code for which to fetch data.
+    postal_code: nil, # String
 
     # The lineup id for which to download guide data.
     lineup_id: nil, # String
   })
 
-  OptionParser.new do |opts|
-    opts.on('--config-file', 'The path to the (optional) configuration file for this grabber') do |p|
-      Pathname
-        .new(p)
-        .realpath
+  option_parser = OptionParser.new do |opts|
+    opts.program_name = PROGRAM_NAME
+    opts.version = "v#{VERSION}" # Pre-pending `v` makes it look nicer
+    opts.release = RELEASE
 
-      # TODO: Read configuration from the given file prior to parsing future
-      # options and add it directly to `config`, overwriting existing values.
-      #
-      # Doing this, reading the configuration file applies a "base" set of
-      # configuration options starting from wherever it appeared in the
-      # arguments order!
+    ############################################################################
+    # BASIC OPTIONS
+    ############################################################################
+
+    opts.on(
+      '-v',
+      '--version',
+      'Output program version information and exit.'
+    ) do
+      config[:return_version_info?] = true
+    end
+
+    opts.on(
+      '-h',
+      '--help',
+      'Output program help text and exit.'
+    ) do
+      config[:return_help_text?] = true
     end
 
     ############################################################################
@@ -164,11 +205,17 @@ def parse_config_from_args(
     # Minimum required options
     #
 
-    opts.on('--description', 'Output an XMLTV description and exit.') do
+    opts.on(
+      '--description',
+      'Output our XMLTV description and exit.'
+    ) do
       config[:return_description?] = true
     end
 
-    opts.on('--capabilities', 'Output XMLTV capabilities and exit.') do
+    opts.on(
+      '--capabilities',
+      'Output our supported XMLTV capabilities and exit.'
+    ) do
       config[:return_capabilities?] = true
     end
 
@@ -176,29 +223,64 @@ def parse_config_from_args(
     # `baseline` options
     #
 
-    opts.on('--quiet', 'Suppress non-error output.') do
+    opts.on(
+      '-q',
+      '--quiet',
+      'Suppress non-error output.'
+    ) do
       config[:quiet?] = true
     end
 
-    opts.on('--output', 'If given, output will be written to this file instead of standard output') do |p|
+    opts.on(
+      '-o PATH',
+      '--output PATH',
+      'Write output to this file instead of standard output.'
+    ) do |p|
       config.output_filename = Pathname
         .new(p)
         .realpath
     end
 
-    opts.on('--days DAYS', 'The number of days of data to obtain, default "as many as are available"') do |d|
+    opts.on(
+      '-d DAYS',
+      '--days DAYS',
+      'The number of days of data to obtain, default "as many as are available"'
+    ) do |d|
       config.days_to_download = Integer(d, 10)
     end
 
-    opts.on('--offset OFFSET', 'Start downloading data on the date this many days from today. Default is 0, i.e. "today", 1 is "tomorrow", etc.') do |o|
+    opts.on(
+      '-f DAYS',
+      '--offset DAYS',
+      'Obtain data starting on the date this many days from today. Default is 0, i.e. "today", 1 is "tomorrow", etc.'
+    ) do |o|
       config.day_offset = Integer(o, 10)
+    end
+
+    opts.on(
+      '--config-file PATH',
+      'The path to the (optional) configuration file for this grabber.'
+    ) do |p|
+      config_path = Pathname
+        .new(p)
+        .realpath
+
+      # Reads command line options from the given file and parses them.
+      #
+      # We do this "in line" so that options are applied "logically", i.e.
+      # options that come _before_ this flag are overwritten, but options that
+      # come _after_ this flag overwrite previously-loaded options.
+      opts.load(config_path)
     end
 
     #
     # `cache` options
     #
 
-    opts.on('--cache PATH', 'A file in which to store data for use across invocations to help avoid hitting the network for previously-downloaded data.') do |p|
+    opts.on(
+      '--cache PATH',
+      'If given, a file in which to cache network requests across invocations.'
+    ) do |p|
       config.cache_filename = Pathname
         .new(p)
         .realpath
@@ -208,29 +290,65 @@ def parse_config_from_args(
     # CONFIGURATION OPTIONS
     ############################################################################
 
-    opts.on('--channel-icon-path PATH', 'If specified, channel icons are output to this directory.') do |p|
+    opts.on(
+      '-i PATH',
+      '--channel-icon-path PATH',
+      'If specified, channel icons are output to this directory.'
+    ) do |p|
       config.channel_icon_path = Pathname
         .new(p)
         .realpath
     end
 
-    opts.on('--lineup-info INFO', 'If specified, outputs lineup inforamtion for the given country and postal code combination, e.g. `USA:12345` or `CAN:A1A 1A1`.') do |s|
-      raw_country, postal_code = s
+    opts.on(
+      '-c COUNTRY',
+      '--country COUNTRY',
+      'The country for which to fetch data. Case-insensitively, one of USA or CAN.'
+    ) do |s|
+      country = s
         .strip
-        .split(':')
-        .map(&:strip)
-
-      country = raw_country
         .upcase
         .to_sym
 
       unless [:USA, :CAN].include?(country)
-        raise ArgumentError, "Invalid country: #{raw_country.inspect}"
+        raise ArgumentError, "Invalid country: #{s.inspect}"
       end
 
-      config.return_lineup_info = [country, postal_code]
+      config.country = country
     end
-  end.parse(args)
+
+    opts.on(
+      '-p CODE',
+      '--postal-code CODE',
+      'The postal code for which to fetch data. Something like `12345` for the USA or `A1A 1A1` for Canada.`'
+    ) do |s|
+      config.postal_code = s
+        .strip
+        .gsub(/\s+/, ' ') # Condense spaces for uniformity
+    end
+
+    opts.on(
+      '-l ID',
+      '--lineup-id ID',
+      'The lineup id for which to fetch data, obtained with the help of the --lineup-info flag.'
+    ) do |s|
+      config.lineup_id = s.strip
+    end
+
+    opts.on(
+      '--show-lineup-info',
+      'Output lineup inforamtion for the given --country and --postal-code values.'
+    ) do |s|
+      config[:return_lineup_info?] = true
+    end
+  end
+
+  # It's useful for external things to have access to this at times, e.g. for
+  # printing help text.
+  config.option_parser = option_parser
+
+  # Parse the given arguments into our config object.
+  option_parser.parse(args)
 
   config
 end
@@ -318,6 +436,18 @@ end
 
 def main!
   config = parse_config_from_args(ARGV).freeze
+
+  # Output program version information if specified.
+  if config.return_version_info?
+    $stdout.puts(config.option_parser.ver())
+    return
+  end
+
+  # Output program help text if specified.
+  if config.return_help_text?
+    $stdout.puts(config.option_parser.help())
+    return
+  end
 
   # Output our XMLTV description and exit.
   if config.return_description?
