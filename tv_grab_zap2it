@@ -58,16 +58,28 @@ end
 
 # A lineup provider
 class Provider
-  attr_reader :lineup_id, :name, :type
+  attr_reader :country, :headend_id, :postal_code, :name, :type
 
   def initialize(
-    lineup_id: nil, # String
+    country: nil, # Symbol
+    headend_id: nil, # String
     name: nil, # String
+    postal_code: nil, # String
     type: nil # String
   )
-    @lineup_id = ensure_argument!('lineup_id', lineup_id)
+    @headend_id = ensure_argument!('headend_id', headend_id)
     @name = ensure_argument!('name', name)
-    @type = ensure_argument!('type', type).downcase.to_sym
+    @postal_code = ensure_argument!('postal_code', postal_code)
+
+    @type = ensure_argument!('type', type)
+      .downcase
+      .to_sym
+
+    @country = ensure_argument!('country', country) do
+      unless [:USA, :CAN].include?(country)
+        "Invalid country: #{country}"
+      end
+    end
   end
 end
 
@@ -286,17 +298,19 @@ def fetch_lineup_info(
     .sort_by { |p| [p.type, p.name] }
     .map do |p|
       Provider.new(
-        lineup_id: p.lineupId,
+        country: country,
+        headend_id: p.headendId,
         name: p.name,
+        postal_code: postal_code,
         type: p.type,
       )
     end
 end
 
 # Downloads and returns all the data for the given date, if possible.
-def fetch_lineup_for_date(
+def fetch_lineup(
+  provider, # Provider
   date, # Date
-  lineup_id, # String
   cache_filename: nil # Pathname | nil
 )
   raise 'TODO: fetch_data_for_date'
@@ -320,8 +334,10 @@ def main!
   end
 
   # Download and print out the configured lineup information, then exit.
-  unless config.return_lineup_info.nil?
-    country, postal_code = config.return_lineup_info
+  if config.return_lineup_info?
+    country = ensure_argument!('--country', config.country)
+    postal_code = ensure_argument!('--postal-code', config.postal_code)
+
     providers = fetch_lineup_info(country, postal_code)
 
     longest_lineup_name_size = providers
@@ -343,7 +359,7 @@ def main!
 
     $stdout.puts("#{name_header_text.ljust(name_column_width)}  #{type_header_text.ljust(type_column_width)}  ID")
     providers.each do |p|
-      $stdout.puts("#{p.name.ljust(name_column_width)}  #{p.type.to_s.ljust(type_column_width)}  #{p.lineup_id}")
+      $stdout.puts("#{p.name.ljust(name_column_width)}  #{p.type.to_s.ljust(type_column_width)}  #{p.headend_id}")
     end
 
     return
