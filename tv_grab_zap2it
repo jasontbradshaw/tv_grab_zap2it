@@ -44,35 +44,201 @@ class TimeInterval
   WEEKS = 7 * DAYS
 end.freeze
 
-# Ensures the given value is non-`nil`. If a block was given, also ensures that
-# said block returns `nil`, but only assuming the value was non-`nil` to begin
-# with. If the block returns non-`nil`, uses the returned value in the error
-# message.
-#
-# Returns the validated value.
-def ensure_argument!(
-  name, # String
-  value # any
-) # typeof value
-  if value.nil?
-    raise ArgumentError, "#{name} is required"
+# A builder-style class for parsing and validating arguments in a standardized
+# way.
+class ArgParser
+  attr_reader :name, :parsers, :value
+
+  def initialize(name, parsers, value)
+    @name = name
+    @parsers = parsers
+    @value = value
   end
 
-  error_message =
-    if block_given?
-      yield
-    else
-      nil
+  # Create a new builder with the given argument name and nothing else.
+  def self.name(
+    name # String
+  )
+    unless name.is_a?(String) && !name.empty?
+      raise ArgumentError, 'name must be a non-empty string'
     end
 
-  unless error_message.nil?
-    raise ArgumentError, "Invalid value for #{name}: #{error_message}"
+    ArgParser.new(name.strip, [], nil)
   end
 
-  value
+  # Add a parser and return a new ArgParser that inherits its other values, but
+  # has another parser added to its list.
+  def parser(
+    &block # (value: typeof prior parser) => any
+  )
+    ArgParser.new(
+      @name,
+      @parsers + [block],
+      @value,
+    )
+  end
+
+  # Ensures that the passed value is an instance of at least one of the given
+  # classes using `#is_a?`.
+  def is_a(first_class, *other_classes)
+    classes = [first_class, *other_classes].freeze
+    self.parser do |value|
+      value_is_a = classes.any? do |potential_class|
+        value.is_a?(potential_class)
+      end
+
+      unless value_is_a
+        class_names = classes.map(&:name).join(', ')
+
+        # Don't add "one of" if there's only a single class to check.
+        one_of_text =
+          if classes.empty?
+            ' '
+          else
+            'one of '
+          end
+
+        raise ArgumentError, "{{ name }} must be an instance of #{one_of_text}#{class_names}, but was an instance of #{value.class.name}"
+      end
+
+      value
+    end
+  end
+
+  # Ensures the passed value is one of the given values.
+  def one_of(potential_value, *other_values)
+    potential_values = [potential_value, *other_values].freeze
+    self.parser do |value|
+      unless potential_values.include?(value)
+        values_text = potential_values.map(&:to_s).join(', ')
+
+        # Don't add "one of" if there's only a single value to check.
+        one_of_text =
+          if potential_values.empty?
+            ' '
+          else
+            'one of '
+          end
+
+        raise ArgumentError, "{{ name }} was expected to be #{one_of_text}#{values_text}, but was #{value}"
+      end
+
+      value
+    end
+  end
+
+  def non_empty
+    self.parser do |value|
+      if value.empty?
+        raise ArgumentError, "{{ name }} must not be empty"
+      end
+
+      value
+    end
+  end
+
+  # Validates that a value is non-`nil` and returns that value.
+  def non_nil
+    self.parser do |value|
+      if value.nil?
+        raise ArgumentError, "{{ name }} is required to be non-`nil`"
+      end
+
+      value
+    end
+  end
+
+  def strip
+    self.is_a(String).parser do |value|
+      value.strip
+    end
+  end
+
+  def substitute(
+    regexp, # Regexp
+    substitution # String
+  )
+    self.is_a(String).parser do |value|
+      value.gsub(regexp, substitution)
+    end
+  end
+
+  def downcase
+    self.is_a(String).parser do |value|
+      value.downcase
+    end
+  end
+
+  def upcase
+    self.is_a(String).parser do |value|
+      value.upcase
+    end
+  end
+
+  def symbolize
+    self.parser do |value|
+      value.to_sym
+    end
+  end
+
+  def int
+    self.parser do |value|
+      begin
+        Integer(value, 10)
+      rescue ArgumentError => err
+        raise ArgumentError, "{{ name }} of #{value.inspect} is not a valid integer: #{err}"
+      end
+
+      value
+    end
+  end
+
+  def real_path_name
+    self.parser do |value|
+      Pathname.new(value).realpath
+    end
+  end
+
+  def uri
+    self.parser do |value|
+       URI.parse(full_path)
+    rescue URI::InvalidURIError => err
+      raise ArgumentError, "{{ name }} of #{full_path.inspect} is not a valid URI: #{err}"
+    end
+  end
+
+  # Thread our value through each configured parser in turn, passing the result
+  # of each parser/validator through to the next. Returns the output of the
+  # final parser given and sets `.value` to the same.
+  #
+  # Converts all raised errors into `ArgumentError` instances and re-raises
+  # them.
+  def parse(
+    value # any
+  )
+    begin
+      @value = @parsers.inject(value) do |current_value, parser|
+        parser.call(current_value)
+      end
+    rescue StandardError => err
+      new_err_class = ArgumentError
+
+      # Replace any occurence of `{{ name }}` with our configured name to make
+      # the errors prettier.
+      message = err.message.gsub(/\{\{\s*name\s*\}\}/i, @name)
+
+      # Preserve the original error class name if it's not the one we're
+      # "casting" to.
+      if err.class.name != new_err_class.name
+        message = "#{err.class.name}: #{message}"
+      end
+
+      raise new_err_class, message
+    end
+  end
 end
 
-# A lineup provider
+# A lineup provider.
 class Provider
   attr_reader :country, :headend_id, :postal_code, :name, :type
 
@@ -83,13 +249,50 @@ class Provider
     postal_code: nil, # String
     type: nil # String
   )
-    @headend_id = ensure_argument!('headend_id', headend_id)
-    @name = ensure_argument!('name', name)
-    @postal_code = ensure_argument!('postal_code', postal_code)
-
-    @type = ensure_argument!('type', type)
+    @headend_id = ArgParser
+      .name('headend_id')
+      .non_nil
+      .parse(headend_id)
+    @name = ArgParser
+      .name('name')
+      .non_nil
+      .parse(name)
+    @postal_code = ArgParser
+      .name('postal_code')
+      .non_nil
+      .parse(postal_code)
+    @type = ArgParser
+      .name('type')
+      .non_nil
+      .is_a(String)
+      .non_empty
       .downcase
-      .to_sym
+      .symbolize
+      .parse(type)
+    @country = ArgParser
+      .name('country')
+      .one_of(:USA, :CAN)
+      .parse(country)
+  end
+end
+
+# A channel in a lineup.
+class Channel
+  attr_reader :call_sign, :id, :number, :image_url
+
+  def initialize(
+    call_sign: nil, # String
+    id: nil, # String
+    number: nil, # String
+    image_url: nil # String
+  )
+    @call_sign = ensure_argument!('call_sign', call_sign)
+    @id = ensure_argument!('id', id)
+    @number = ensure_argument!('number', number)
+
+    @image_url = ensure_argument!('image_url', image_url) do
+
+    end
 
     @country = ensure_argument!('country', country) do
       unless [:USA, :CAN].include?(country)
@@ -236,9 +439,10 @@ def parse_config_from_args(
       '--output PATH',
       'Write output to this file instead of standard output.'
     ) do |p|
-      config.output_filename = Pathname
-        .new(p)
-        .realpath
+      config.output_filename = ArgParser
+        .name('--output')
+        .real_path_name
+        .parse(p)
     end
 
     opts.on(
@@ -246,7 +450,10 @@ def parse_config_from_args(
       '--days DAYS',
       'The number of days of data to obtain, default "as many as are available"'
     ) do |d|
-      config.days_to_download = Integer(d, 10)
+      config.days_to_download = ArgParser
+        .name('--days')
+        .int
+        .parse(d)
     end
 
     opts.on(
@@ -254,16 +461,20 @@ def parse_config_from_args(
       '--offset DAYS',
       'Obtain data starting on the date this many days from today. Default is 0, i.e. "today", 1 is "tomorrow", etc.'
     ) do |o|
-      config.day_offset = Integer(o, 10)
+      config.day_offset = ArgParser
+        .name('--offset')
+        .int
+        .parse(o)
     end
 
     opts.on(
       '--config-file PATH',
       'The path to the (optional) configuration file for this grabber.'
     ) do |p|
-      config_path = Pathname
-        .new(p)
-        .realpath
+      config_path = ArgParser
+        .name('--config-file')
+        .real_path_name
+        .parse(p)
 
       # Reads command line options from the given file and parses them.
       #
@@ -281,9 +492,10 @@ def parse_config_from_args(
       '--cache PATH',
       'If given, a file in which to cache network requests across invocations.'
     ) do |p|
-      config.cache_filename = Pathname
-        .new(p)
-        .realpath
+      config.cache_filename = ArgParser
+        .name('--cache')
+        .real_path_name
+        .parse(p)
     end
 
     ############################################################################
@@ -293,28 +505,25 @@ def parse_config_from_args(
     opts.on(
       '-i PATH',
       '--channel-icon-path PATH',
-      'If specified, channel icons are output to this directory.'
+      "If specified, download channel icons to this directory, creating it if it doesn't exist."
     ) do |p|
-      config.channel_icon_path = Pathname
-        .new(p)
-        .realpath
+      config.channel_icon_path = ArgParser
+        .name('--channel-icon-path')
+        .real_path_name
+        .parse(p)
     end
 
     opts.on(
       '-c COUNTRY',
       '--country COUNTRY',
-      'The country for which to fetch data. Case-insensitively, one of USA or CAN.'
+      'The country for which to fetch data, one of USA or CAN.'
     ) do |s|
-      country = s
+      config.country = ArgParser
+        .name('--country')
         .strip
-        .upcase
-        .to_sym
-
-      unless [:USA, :CAN].include?(country)
-        raise ArgumentError, "Invalid country: #{s.inspect}"
-      end
-
-      config.country = country
+        .one_of('USA', 'CAN')
+        .symbolize
+        .parse(s)
     end
 
     opts.on(
@@ -322,9 +531,11 @@ def parse_config_from_args(
       '--postal-code CODE',
       'The postal code for which to fetch data. Something like `12345` for the USA or `A1A 1A1` for Canada.`'
     ) do |s|
-      config.postal_code = s
+      config.postal_code = ArgParser
+        .name('--postal-code')
         .strip
-        .gsub(/\s+/, ' ') # Condense spaces for uniformity
+        .substitute(/\s+/, ' ') # Condense spaces for uniformity
+        .parse(s)
     end
 
     opts.on(
@@ -332,7 +543,10 @@ def parse_config_from_args(
       '--lineup-id ID',
       'The lineup id for which to fetch data, obtained with the help of the --lineup-info flag.'
     ) do |s|
-      config.lineup_id = s.strip
+      config.lineup_id = ArgParser
+        .name('--lineup-id')
+        .strip
+        .parse(s)
     end
 
     opts.on(
@@ -465,8 +679,15 @@ def main!
 
   # Download and print out the configured lineup information, then exit.
   if config.return_lineup_info?
-    country = ensure_argument!('--country', config.country)
-    postal_code = ensure_argument!('--postal-code', config.postal_code)
+    country = ArgParser
+      .name('--country')
+      .non_nil
+      .parse(config.country)
+
+    postal_code = ArgParser
+      .name('--postal-code')
+      .non_nil
+      .parse(config.postal_code)
 
     providers = fetch_lineup_info(country, postal_code)
 
