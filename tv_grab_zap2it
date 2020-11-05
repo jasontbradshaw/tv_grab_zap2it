@@ -191,9 +191,30 @@ class Arg
     end
   end
 
-  def real_path_name
+  def path_name
     self.parser do |value|
-      Pathname.new(value).realpath
+      Pathname
+        .new(value)
+        .cleanpath
+        .expand_path
+    end
+  end
+
+  def exists
+    self.parser.path_name do |value|
+      unless value.exist?
+        raise ArgumentError, "{{ name }} of #{value} does not exist"
+      end
+    end
+  end
+
+  # Opens an IO stream from the given path name.
+  def stream(
+    mode = 'r' # https://ruby-doc.org/core-2.7.2/IO.html#method-c-new-label-IO+Open+Mode
+  )
+    self.path_name.parser do |path|
+      fd = path.sysopen(mode)
+      IO.open(fd, mode)
     end
   end
 
@@ -399,11 +420,44 @@ class Program
   end
 end
 
+# A config-specific struct that allows for easy access to arbitrary values while
+# also providing some helper methods that we use elsewhere.
+class ConfigOpenStruct < OpenStruct
+  # Require that the given configuration value be present in the parsed
+  # configuration, then return it if present.
+  def require(
+    key, # Symbol
+    name = nil # String, defaults to being auto-generated from `key`
+  ) # typeof self[key]
+    # "Humanize" the config key if an explicit name wasn't given.
+    if name.nil?
+      name = key
+        .to_s
+        .gsub(/_+/, ' ')
+        .strip
+    end
+
+    value = self[key]
+
+    if value.nil?
+      article_text =
+        if name =~ /^[aeiou]/
+          "An"
+        else
+          "A"
+        end
+      raise ArgumentError, "#{article_text} #{name} is required but was not specified; see --help for details."
+    end
+
+    value
+  end
+end
+
 # Parse the configuration from the command line options.
 def parse_config_from_args(
   args # An arguments array, typically `ARGV`.
 )
-  config = OpenStruct.new({
+  config = ConfigOpenStruct.new({
     # The `OptionParser` instance that parsed this config. This is useful so
     # whoever gets the config can inspect e.g. all the parsed arguments that
     # created it.
@@ -428,7 +482,7 @@ def parse_config_from_args(
     cache_filename: nil, # Pathname | nil
     day_offset: 0, # Integer
     days_to_download: Float::INFINITY, # Integer | Infinity
-    output_filename: nil, # Pathname | nil
+    output_file: $stdout, # File-like
     quiet?: false,
 
     # Program-specific configuration, mostly required.
@@ -450,19 +504,19 @@ def parse_config_from_args(
     # of simply being silently available without obvious provenance.
 
     opts.on(
-      '-v',
-      '--version',
-      'Output program version information and exit.'
-    ) do
-      config[:return_version_info?] = true
-    end
-
-    opts.on(
       '-h',
       '--help',
       'Output program help text and exit.'
     ) do
       config[:return_help_text?] = true
+    end
+
+    opts.on(
+      '-v',
+      '--version',
+      'Output program version information and exit.'
+    ) do
+      config[:return_version_info?] = true
     end
 
     ############################################################################
@@ -505,9 +559,10 @@ def parse_config_from_args(
       "#{output_flag} PATH",
       'Write output to this file instead of standard output.'
     ) do |p|
-      config.output_filename = Arg
+      config.output_file = Arg
         .name(output_flag)
-        .real_path_name
+        .path_name
+        .stream('w')
         .parse(p)
     end
 
@@ -542,7 +597,8 @@ def parse_config_from_args(
     ) do |p|
       config_path = Arg
         .name(config_file_flag)
-        .real_path_name
+        .path_name
+        .exists
         .parse(p)
 
       # Reads command line options from the given file and parses them.
@@ -564,7 +620,7 @@ def parse_config_from_args(
     ) do |p|
       config.cache_filename = Arg
         .name(cache_flag)
-        .real_path_name
+        .path_name
         .parse(p)
     end
 
@@ -874,53 +930,58 @@ end
 
 def main!
   config = parse_config_from_args(ARGV).freeze
+  $output = config.output_file
 
-  # Output program version information.
-  if config.return_version_info?
-    $stdout.puts(config.option_parser.ver())
+  # Output program help text.
+  #
+  # This is handled as the very first "mode" since it's the most important part
+  # of any command; its presence anywhere in the arguments indicates the user
+  # doesn't know what to do and needs our guidance!
+  if config.return_help_text?
+    $output.puts(config.option_parser.help())
     return
   end
 
-  # Output program help text.
-  if config.return_help_text?
-    $stdout.puts(config.option_parser.help())
+  # Output program version information.
+  if config.return_version_info?
+    $output.puts(config.option_parser.ver())
     return
   end
 
   # Output our XMLTV description.
   if config.return_description?
-    $stdout.puts(XMLTV_DESCRIPTION)
+    $output.puts(XMLTV_DESCRIPTION)
     return
   end
 
   # Output our XMLTV capabilities.
   if config.return_capabilities?
     XMLTV_CAPABILITIES.each do |capability|
-      $stdout.puts(capability)
+      $output.puts(capability)
     end
     return
   end
 
   # Download and print out the configured lineup information.
   if config.return_providers?
-    country = Arg.name('country').non_nil.parse(config.country)
-    postal_code = Arg.name('postal code').non_nil.parse(config.postal_code)
+    country = config.require(:country)
+    postal_code = config.require(:postal_code)
 
     output = display_providers(country, postal_code)
-    $stdout.puts(output)
+    $output.puts(output)
     return
   end
 
   # Download and print out a listing of the channels for the given provider
   # information.
   if config.return_channels?
-    country = Arg.name('country').non_nil.parse(config.country)
-    postal_code = Arg.name('postal code').non_nil.parse(config.postal_code)
-    provider_id = Arg.name('provider id').non_nil.parse(config.provider_id)
+    country = config.require(:country)
+    postal_code = config.require(:postal_code)
+    provider_id = config.require(:provider_id)
 
     provider = fetch_provider(country, postal_code, provider_id)
     output = display_channels(provider)
-    $stdout.puts(output)
+    $output.puts(output)
     return
   end
 end
