@@ -14,12 +14,11 @@ require 'uri'
 
 PROGRAM_NAME = 'tv_grab_zap2it'
 VERSION = '0.0.1'
-
-# Compute a truncated SHA-512 digest of the current file and use this as our
-# release identifier. Since the entire program is in a single file, this is
-# guaranteed to provide a unique and stable value for each "build".
 RELEASE =
   begin
+    # Compute a truncated SHA-512 digest of the current file and use this as our
+    # release identifier. Since the entire program is in a single file, this is
+    # guaranteed to provide a unique and stable value for each "build".
     file_data = File.read(Pathname.new(__FILE__).realpath)
 
     hash = Digest::SHA2
@@ -46,7 +45,7 @@ end.freeze
 
 # A builder-style class for parsing and validating arguments in a standardized
 # way.
-class ArgParser
+class Arg
   attr_reader :name, :parsers, :value
 
   def initialize(name, parsers, value)
@@ -63,15 +62,15 @@ class ArgParser
       raise ArgumentError, 'name must be a non-empty string'
     end
 
-    ArgParser.new(name.strip, [], nil)
+    Arg.new(name.strip, [], nil)
   end
 
-  # Add a parser and return a new ArgParser that inherits its other values, but
-  # has another parser added to its list.
+  # Add a parser and return a new `Arg` that inherits its other values, but has
+  # another parser added to its list.
   def parser(
     &block # (value: typeof prior parser) => any
   )
-    ArgParser.new(
+    Arg.new(
       @name,
       @parsers + [block],
       @value,
@@ -201,7 +200,7 @@ class ArgParser
 
   def uri
     self.parser do |value|
-       URI.parse(full_path)
+      URI.parse(full_path)
     rescue URI::InvalidURIError => err
       raise ArgumentError, "{{ name }} of #{full_path.inspect} is not a valid URI: #{err}"
     end
@@ -238,30 +237,41 @@ class ArgParser
   end
 end
 
-# A lineup provider.
+# A provider, something that has a "lineup" associated with it. Typically this
+# is something like "Local over-the-air stations" or "AT&T Uverse Cable" or
+# something of this nature.
+#
+# These are only unique given a combination of country, postal code, and
+# "headend" id!
 class Provider
-  attr_reader :country, :headend_id, :postal_code, :name, :type
+  attr_reader :country, :id, :postal_code, :name, :type
 
   def initialize(
     country: nil, # Symbol
-    headend_id: nil, # String
+    id: nil, # String, the `headendId` value from the API
     name: nil, # String
     postal_code: nil, # String
     type: nil # String
   )
-    @headend_id = ArgParser
-      .name('headend_id')
+    @id = Arg
+      .name('id')
       .non_nil
-      .parse(headend_id)
-    @name = ArgParser
+      .is_a(String)
+      .non_empty
+      .parse(id)
+    @name = Arg
       .name('name')
       .non_nil
+      .is_a(String)
+      .non_empty
       .parse(name)
-    @postal_code = ArgParser
+    @postal_code = Arg
       .name('postal_code')
       .non_nil
+      .non_empty
+      .is_a(String)
       .parse(postal_code)
-    @type = ArgParser
+    @type = Arg
       .name('type')
       .non_nil
       .is_a(String)
@@ -269,7 +279,7 @@ class Provider
       .downcase
       .symbolize
       .parse(type)
-    @country = ArgParser
+    @country = Arg
       .name('country')
       .one_of(:USA, :CAN)
       .parse(country)
@@ -286,19 +296,56 @@ class Channel
     number: nil, # String
     image_url: nil # String
   )
-    @call_sign = ensure_argument!('call_sign', call_sign)
-    @id = ensure_argument!('id', id)
-    @number = ensure_argument!('number', number)
+    @call_sign = Arg
+      .name('call_sign')
+      .non_nil
+      .is_a(String)
+      .non_empty
+      .strip
+      .parse(call_sign)
+    @id = Arg
+      .name('id')
+      .non_nil
+      .is_a(String)
+      .non_empty
+      .strip
+      .parse(id)
+    @number = Arg
+      .name('number')
+      .non_nil
+      .is_a(String)
+      .non_empty
+      .strip
+      .parse(number)
+    @image_url = Arg
+      .name('image_url')
+      .non_nil
+      .is_a(String)
+      .uri
+      .parser do |uri|
+        # The URL comes in "naked" and needs to be secure-ified.
+        uri.scheme = 'https'
 
-    @image_url = ensure_argument!('image_url', image_url) do
-
-    end
-
-    @country = ensure_argument!('country', country) do
-      unless [:USA, :CAN].include?(country)
-        "Invalid country: #{country}"
+        # The URL _also_ comes in with `w=123`, but if we strip this off then
+        # we'll get back the original, full-size picture instead.
+        uri.query = nil
       end
-    end
+      .parse(image_url)
+  end
+
+  def to_xml
+    raise 'TODO: Implement Channel#to_xml'
+  end
+end
+
+# One program/timeslot combination in a channel's lineup.
+class Program
+  attr_reader :channel
+
+  def initialize(
+    channel: nil # Channel
+  )
+    raise 'TODO: Implement Program'
   end
 end
 
@@ -351,13 +398,9 @@ def parse_config_from_args(
     # hitting the network. If not provided, no cache is used.
     cache_filename: nil,
 
-    # Whether channel icons should be downloaded and written to the given
-    # directory. If no path is given, channel icons won't be downloaded.
-    channel_icon_path: nil, # Pathname | nil
-
     # If specified, downloads and outputs available TV lineups and their ids for
-    # later use with the `lineup_id` configuration option.
-    return_lineup_info?: false,
+    # later use with the `provider_id` configuration option.
+    return_providers?: false,
 
     # If specified, outputs the program's version info and exits.
     return_version_info?: false,
@@ -371,8 +414,11 @@ def parse_config_from_args(
     # The postal code for which to fetch data.
     postal_code: nil, # String
 
-    # The lineup id for which to download guide data.
-    lineup_id: nil, # String
+    # The provider id from which to download guide data.
+    provider_id: nil, # String
+
+    # If specified, outputs the channel list for the configured provider.
+    return_channels?: false,
   })
 
   option_parser = OptionParser.new do |opts|
@@ -434,45 +480,49 @@ def parse_config_from_args(
       config[:quiet?] = true
     end
 
+    output_flag = '--output'
     opts.on(
       '-o PATH',
-      '--output PATH',
+      "#{output_flag} PATH",
       'Write output to this file instead of standard output.'
     ) do |p|
-      config.output_filename = ArgParser
-        .name('--output')
+      config.output_filename = Arg
+        .name(output_flag)
         .real_path_name
         .parse(p)
     end
 
+    days_flag = '--days'
     opts.on(
       '-d DAYS',
-      '--days DAYS',
+      "#{days_flag} DAYS",
       'The number of days of data to obtain, default "as many as are available"'
     ) do |d|
-      config.days_to_download = ArgParser
-        .name('--days')
+      config.days_to_download = Arg
+        .name(days_flag)
         .int
         .parse(d)
     end
 
+    offset_flag = '--offset'
     opts.on(
       '-f DAYS',
-      '--offset DAYS',
+      "#{offset_flag} DAYS",
       'Obtain data starting on the date this many days from today. Default is 0, i.e. "today", 1 is "tomorrow", etc.'
     ) do |o|
-      config.day_offset = ArgParser
-        .name('--offset')
+      config.day_offset = Arg
+        .name(offset_flag)
         .int
         .parse(o)
     end
 
+    config_file_flag = '--config-file'
     opts.on(
-      '--config-file PATH',
+      "#{config_file_flag} PATH",
       'The path to the (optional) configuration file for this grabber.'
     ) do |p|
-      config_path = ArgParser
-        .name('--config-file')
+      config_path = Arg
+        .name(config_file_flag)
         .real_path_name
         .parse(p)
 
@@ -488,12 +538,13 @@ def parse_config_from_args(
     # `cache` options
     #
 
+    cache_flag = '--cache'
     opts.on(
-      '--cache PATH',
+      "#{cache_flag} PATH",
       'If given, a file in which to cache network requests across invocations.'
     ) do |p|
-      config.cache_filename = ArgParser
-        .name('--cache')
+      config.cache_filename = Arg
+        .name(cache_flag)
         .real_path_name
         .parse(p)
     end
@@ -502,58 +553,61 @@ def parse_config_from_args(
     # CONFIGURATION OPTIONS
     ############################################################################
 
-    opts.on(
-      '-i PATH',
-      '--channel-icon-path PATH',
-      "If specified, download channel icons to this directory, creating it if it doesn't exist."
-    ) do |p|
-      config.channel_icon_path = ArgParser
-        .name('--channel-icon-path')
-        .real_path_name
-        .parse(p)
-    end
-
+    country_flag = '--country'
     opts.on(
       '-c COUNTRY',
-      '--country COUNTRY',
+      "#{country_flag} COUNTRY",
       'The country for which to fetch data, one of USA or CAN.'
     ) do |s|
-      config.country = ArgParser
-        .name('--country')
+      config.country = Arg
+        .name(country_flag)
         .strip
         .one_of('USA', 'CAN')
         .symbolize
         .parse(s)
     end
 
+    postal_code_flag = '--postal-code'
     opts.on(
       '-p CODE',
-      '--postal-code CODE',
+      "#{postal_code_flag} CODE",
       'The postal code for which to fetch data. Something like `12345` for the USA or `A1A 1A1` for Canada.`'
     ) do |s|
-      config.postal_code = ArgParser
-        .name('--postal-code')
+      config.postal_code = Arg
+        .name(postal_code_flag)
         .strip
         .substitute(/\s+/, ' ') # Condense spaces for uniformity
+        .non_empty
         .parse(s)
     end
 
+    show_provider_info_flag = '--show-providers'
     opts.on(
-      '-l ID',
-      '--lineup-id ID',
-      'The lineup id for which to fetch data, obtained with the help of the --lineup-info flag.'
+      show_provider_info_flag,
+      "Output provider information for the given #{country_flag} and #{postal_code_flag} values."
     ) do |s|
-      config.lineup_id = ArgParser
-        .name('--lineup-id')
+      config[:return_providers?] = true
+    end
+
+    provider_id_flag = '--provider-id'
+    opts.on(
+      '-r ID',
+      "#{provider_id_flag} ID",
+      "The provider id for which to fetch data, obtained with the help of the #{show_provider_info_flag} flag."
+    ) do |s|
+      config.provider_id = Arg
+        .name(provider_id_flag)
         .strip
+        .non_empty
         .parse(s)
     end
 
+    show_channels_flag = '--show-channels'
     opts.on(
-      '--show-lineup-info',
-      'Output lineup inforamtion for the given --country and --postal-code values.'
-    ) do |s|
-      config[:return_lineup_info?] = true
+      show_channels_flag,
+      "Output the channels for the given #{country_flag}, #{postal_code_flag}, and #{provider_id_flag} values.",
+    ) do
+      config[:return_channels?] = true
     end
   end
 
@@ -608,8 +662,9 @@ def fetch(
   to_deep_openstruct(json)
 end
 
-# Downloads and returns lineup data for the given country and postal code.
-def fetch_lineup_info(
+# Downloads and returns lineup (i.e. provider) data for the given country and
+# postal code.
+def fetch_providers(
   country, # :USA | :CAN
   postal_code, # String, e.g. `12345` or `A1A 1A1`
   cache_filename: nil # Pathname | nil
@@ -627,16 +682,39 @@ def fetch_lineup_info(
 
   lineup_json
     .Providers
-    .sort_by { |p| [p.type, p.name] }
+    .sort_by { |p| [p.type, p.name] } # Do a human-friendly sort for display
     .map do |p|
       Provider.new(
         country: country,
-        headend_id: p.headendId,
+        id: p.headendId,
         name: p.name,
         postal_code: postal_code,
         type: p.type,
       )
     end
+end
+
+# Fetch overall provider info and return the provider that corresponds to the
+# given parameters. If no provider is found, returns `nil`.
+def fetch_provider(
+  country, # :USA | :CAN
+  postal_code, # String
+  provider_id, # String
+  cache_filename: nil
+) # Provider | nil
+  providers = fetch_providers(
+    country,
+    postal_code,
+    cache_filename: cache_filename,
+  )
+
+  providers.find do |provider|
+    (
+      provider.country = country &&
+      provider.postal_code = postal_code &&
+      provider.id = provider_id
+    )
+  end
 end
 
 # Downloads and returns all the data for the given date, if possible.
@@ -648,28 +726,86 @@ def fetch_lineup(
   raise 'TODO: fetch_data_for_date'
 end
 
+# Formats the given data nicely for display in the terminal as a table and
+# returns the result.
+#
+# No more columns than those given will be displayed. If any row contains too
+# few values for the given columns, empty strings will be displayed in the
+# "holes".
+def display_table(
+  columns, # Array<Symbol | String>
+  rows, # Array<Tuple<any>>
+  column_padding: 2 # Integer, the space between columns
+) # String
+  # Turn everything into a string and resize all the rows to be no longer than
+  # the number of columns. Any "missing" columns will be omitted from the output
+  # entirely.
+  max_column_value_lengths = columns.map { 0 }
+  prepared_rows = [columns, *rows].map do |row|
+     row
+       .slice(0, columns.length) # Truncate to column length
+       .map(&:to_s) # Stringify contents
+       .each_with_index do |value, column_index| # Update max value size
+         value_length = value.length
+         if max_column_value_lengths[column_index] < value_length
+           max_column_value_lengths[column_index] = value_length
+         end
+       end
+  end
+
+  column_padder = ' ' * column_padding
+  prepared_rows.each_with_index.map do |row, index|
+    row
+      .each_with_index
+      .map { |r, i| r.ljust(max_column_value_lengths[i]) }
+      .join(column_padder)
+      .strip
+  end.join("\n")
+end
+
+# Returns a string for terminal output representing provider information.
+def display_providers(
+  country, # :USA | :CAN
+  postal_code # String
+) # String
+  providers = fetch_providers(country, postal_code)
+
+  display_table(
+    [:NAME, :TYPE, :ID],
+    providers.map { |p| [p.name, p.type, p.id] },
+  )
+end
+
+def display_channels(
+  country, # :USA | :CAN
+  postal_code, # String
+  provider_id # String
+) # String
+  # TODO: Write provider table!
+end
+
 def main!
   config = parse_config_from_args(ARGV).freeze
 
-  # Output program version information if specified.
+  # Output program version information and exit if specified.
   if config.return_version_info?
     $stdout.puts(config.option_parser.ver())
     return
   end
 
-  # Output program help text if specified.
+  # Output program help text and exit if specified.
   if config.return_help_text?
     $stdout.puts(config.option_parser.help())
     return
   end
 
-  # Output our XMLTV description and exit.
+  # Output our XMLTV description and exit if specified.
   if config.return_description?
     $stdout.puts(XMLTV_DESCRIPTION)
     return
   end
 
-  # Output our XMLTV capabilities and exit.
+  # Output our XMLTV capabilities and exit if specified.
   if config.return_capabilities?
     XMLTV_CAPABILITIES.each do |capability|
       $stdout.puts(capability)
@@ -678,41 +814,38 @@ def main!
   end
 
   # Download and print out the configured lineup information, then exit.
-  if config.return_lineup_info?
-    country = ArgParser
-      .name('--country')
+  if config.return_providers?
+    country = Arg
+      .name('country')
       .non_nil
       .parse(config.country)
 
-    postal_code = ArgParser
-      .name('--postal-code')
+    postal_code = Arg
+      .name('postal code')
       .non_nil
       .parse(config.postal_code)
 
-    providers = fetch_lineup_info(country, postal_code)
+    $stdout.puts(display_providers(country, postal_code))
+    return
+  end
 
-    longest_lineup_name_size = providers
-      .map(&:name)
-      .map(&:size)
-      .max
+  if config.return_channels?
+    country = Arg
+      .name('country')
+      .non_nil
+      .parse(config.country)
 
-    longest_lineup_type_size = providers
-      .map(&:type)
-      .map(&:to_s)
-      .map(&:size)
-      .max
+    postal_code = Arg
+      .name('postal code')
+      .non_nil
+      .parse(config.postal_code)
 
-    name_header_text = 'NAME'
-    name_column_width = [name_header_text.size, longest_lineup_name_size].max
+    provider_id = Arg
+      .name('provider id')
+      .non_nil
+      .parse(config.provider_id)
 
-    type_header_text = 'TYPE'
-    type_column_width = [type_header_text.size, longest_lineup_type_size].max
-
-    $stdout.puts("#{name_header_text.ljust(name_column_width)}  #{type_header_text.ljust(type_column_width)}  ID")
-    providers.each do |p|
-      $stdout.puts("#{p.name.ljust(name_column_width)}  #{p.type.to_s.ljust(type_column_width)}  #{p.headend_id}")
-    end
-
+    $stdout.puts(display_channels(country, postal_code, provider_id))
     return
   end
 end
