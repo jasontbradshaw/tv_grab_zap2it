@@ -46,7 +46,10 @@ end.freeze
 # A builder-style class for parsing and validating arguments in a standardized
 # way.
 class Arg
-  attr_reader :name, :parsers, :value
+  attr_reader \
+    :name,
+    :parsers,
+    :value
 
   def initialize(name, parsers, value)
     @name = name
@@ -244,7 +247,12 @@ end
 # These are only unique given a combination of country, postal code, and
 # "headend" id!
 class Provider
-  attr_reader :country, :id, :postal_code, :name, :type
+  attr_reader \
+    :country,
+    :id,
+    :postal_code,
+    :name,
+    :type
 
   def initialize(
     country: nil, # Symbol
@@ -288,7 +296,11 @@ end
 
 # A channel in a lineup.
 class Channel
-  attr_reader :call_sign, :id, :number, :image_url
+  attr_reader \
+    :call_sign,
+    :id,
+    :number,
+    :image_url
 
   def initialize(
     call_sign: nil, # String
@@ -338,14 +350,56 @@ class Channel
   end
 end
 
-# One program/timeslot combination in a channel's lineup.
-class Program
-  attr_reader :channel
+# An episode number in some episode numbering system, e.g. `S01E02` in the
+# `onscreen` system.
+class EpisodeNumber
+  attr_reader \
+    :value,
+    :system
 
   def initialize(
-    channel: nil # Channel
+    value: nil, # String
+    system: nil # :xmltv_ns | :onscreen (TODO: Are there other possibilities?)
+  )
+    raise 'TODO: Implement EpisodeNumber'
+  end
+
+  def to_xml
+    raise 'TODO: Implement EpisodeNumber#to_xml'
+  end
+end
+
+# One program/timeslot combination in a channel's lineup.
+class Program
+  attr_reader \
+    :channel,
+    :start_time,
+    :stop_time,
+    :episode_numbers,
+    :title,
+    :description,
+    :image_url,
+    :previously_shown_time,
+    :rating,
+    :categories
+
+  def initialize(
+    channel: nil, # Channel
+    start_time: nil, # Time
+    stop_time: nil, # Time
+    episode_numbers: nil, # Array<EpisodeNumber>
+    title: nil, # String
+    description: nil, # String
+    image_url: nil, # URI
+    previously_shown_time: nil, # Time | nil
+    rating: nil, # Rating | nil
+    categories: nil # Array<String>
   )
     raise 'TODO: Implement Program'
+  end
+
+  def to_xml
+    raise 'TODO: Implement Program#to_xml'
   end
 end
 
@@ -616,7 +670,7 @@ def fetch(
   query: {}, # Hash<Symbol, any>
   cache_filename: nil, # Pathname | nil
   cache_ttl_seconds: nil # Integer | nil
-) # Hash<Symbol, JSON> | Array<JSON>
+) # Hash<Symbol, OpenStruct> | Array<OpenStruct>
   full_path = File.join(
     'https://tvlistings.zap2it.com',
     *path.map(&:to_s),
@@ -704,13 +758,20 @@ def fetch_provider(
   end
 end
 
+def fetch_channels(
+  provider, # Provider
+  cache_filename: nil
+) # Array<Channel>
+  raise 'TODO: Implement fetch_channels'
+end
+
 # Downloads and returns all the data for the given date, if possible.
 def fetch_lineup(
   provider, # Provider
   date, # Date
   cache_filename: nil # Pathname | nil
 )
-  raise 'TODO: fetch_data_for_date'
+  raise 'TODO: Implement fetch_lineup'
 end
 
 # Formats the given data nicely for display in the terminal as a table and
