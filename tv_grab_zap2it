@@ -403,24 +403,6 @@ class Program
   end
 end
 
-# Recursively convert all hashes contained in the given value to `OpenStruct`
-# objects, leaving everything else unchanged.
-def to_deep_openstruct(
-  value # any
-)
-  if value.is_a?(Hash)
-    OpenStruct.new(
-      value.each_with_object({}) do |(key, val), all|
-        all[key] = to_deep_openstruct(val)
-      end
-    )
-  elsif value.is_a?(Array)
-    value.map { |val| to_deep_openstruct(val) }
-  else
-    value
-  end
-end
-
 # Parse the configuration from the command line options.
 def parse_config_from_args(
   args # An arguments array, typically `ARGV`.
@@ -667,7 +649,8 @@ end
 # its response body can't be parsed, raises an `IOError`.
 def fetch(
   *path, # Array<any>
-  query: {}, # Hash<Symbol, any>
+  query: nil, # Hash<Symbol, any> | nil
+  data: nil, # Hash<Symbol | String, JSON> | nil
   cache_filename: nil, # Pathname | nil
   cache_ttl_seconds: nil # Integer | nil
 ) # Hash<Symbol, OpenStruct> | Array<OpenStruct>
@@ -679,7 +662,11 @@ def fetch(
   uri =
     begin
       u = URI.parse(full_path)
-      u.query = URI.encode_www_form(query.to_a)
+
+      unless query.nil?
+        u.query = URI.encode_www_form(query.to_a)
+      end
+
       u
     rescue URI::InvalidURIError => err
       raise ArgumentError, "Invalid URI from path #{full_path.inspect}: #{err}"
@@ -687,7 +674,14 @@ def fetch(
 
   # TODO: Read from the cache instead if one was specified!
 
-  res = Net::HTTP.get_response(uri)
+  # If given data, make a POST request. Otherwise, make a GET request.
+  res =
+    if data.nil?
+      Net::HTTP.get_response(uri)
+    else
+      Net::HTTP.post_form(uri, **data)
+    end
+
   unless res.is_a?(Net::HTTPSuccess)
     raise IOError, "Got HTTP #{response.code} from #{uri}: #{response.message}"
   end
@@ -695,12 +689,17 @@ def fetch(
   json =
     begin
       raw_json = res.body
-      JSON.parse(raw_json, symbolize_names: true)
+      JSON.parse(
+        raw_json,
+
+        # Turn everything into a convenient object, JavaScript style.
+        object_class: OpenStruct,
+      )
     rescue JSON::ParserError => err
       raise IOError, "Failed to parse HTTP response from #{uri}: #{err}"
     end
 
-  to_deep_openstruct(json)
+  json
 end
 
 # Downloads and returns lineup (i.e. provider) data for the given country and
