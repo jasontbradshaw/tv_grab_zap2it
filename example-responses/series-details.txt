@@ -1,0 +1,2757 @@
+$ curl --verbose 'https://tvlistings.zap2it.com/api/program/overviewDetails' -d 'programSeriesID=SH00753791'
+*   Trying 52.88.250.209:443...
+* Connected to tvlistings.zap2it.com (52.88.250.209) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+* TLSv1.2 (IN), TLS handshake, Certificate (11):
+* TLSv1.2 (IN), TLS handshake, Server key exchange (12):
+* TLSv1.2 (IN), TLS handshake, Server finished (14):
+* TLSv1.2 (OUT), TLS handshake, Client key exchange (16):
+* TLSv1.2 (OUT), TLS change cipher, Change cipher spec (1):
+* TLSv1.2 (OUT), TLS handshake, Finished (20):
+* TLSv1.2 (IN), TLS handshake, Finished (20):
+* SSL connection using TLSv1.2 / ECDHE-RSA-AES128-GCM-SHA256
+* ALPN, server accepted to use h2
+* Server certificate:
+*  subject: OU=Domain Control Validated; CN=*.zap2it.com
+*  start date: Sep 21 15:00:51 2020 GMT
+*  expire date: Sep 21 15:00:51 2021 GMT
+*  subjectAltName: host "tvlistings.zap2it.com" matched cert's "*.zap2it.com"
+*  issuer: C=US; ST=Arizona; L=Scottsdale; O=GoDaddy.com, Inc.; OU=http://certs.godaddy.com/repository/; CN=Go Daddy Secure Certificate Authority - G2
+*  SSL certificate verify ok.
+* Using HTTP2, server supports multi-use
+* Connection state changed (HTTP/2 confirmed)
+* Copying HTTP/2 data in stream buffer to connection buffer after upgrade: len=0
+* Using Stream ID: 1 (easy handle 0x95c3ff0)
+> POST /api/program/overviewDetails HTTP/2
+> Host: tvlistings.zap2it.com
+> user-agent: curl/7.72.0
+> accept: */*
+> content-length: 26
+> content-type: application/x-www-form-urlencoded
+>
+* Connection state changed (MAX_CONCURRENT_STREAMS == 128)!
+* We are completely uploaded and fine
+< HTTP/2 200
+< date: Thu, 05 Nov 2020 12:34:22 GMT
+< content-type: application/json; charset=utf-8
+< content-length: 62694
+< server: Apache
+< access-control-allow-origin: *
+< access-control-allow-methods: POST
+< access-control-allow-headers: host,x-forwarded-proto,x-forwarded-port,x-amzn-trace-id,user-agent,accept,content-type,x-forwarded-for,x-forwarded-host,x-forwarded-server,connection,content-length
+< access-control-allow-credentials: true
+< etag: W/"f4e6-gsQHA6cSSPJRF6ufM6cIbfhUcWs"
+< vary: Accept-Encoding
+<
+{
+  "seriesTitle": "Criminal Minds",
+  "seriesDescription": "An elite squad of FBI profilers analyzes the country's most-twisted criminal minds, anticipating the perpetrators' next moves before they can strike again. Each member of the \"mind hunter\" team brings his or her expertise to pinpoint predators' motivations and identify emotional triggers to stop them. The core group includes an official profiler who is highly skilled at getting into the minds of criminals, a quirky genius, the former media liaison who manages to adeptly balance family life and the job, and a computer wizard.",
+  "seriesImage": "p185123_l_h9_aa",
+  "backgroundImage": "p185123_i_h9_aj",
+  "releaseYear": "0",
+  "seriesGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+  "totalTMSIDs": "360",
+  "overviewTab": {
+    "cast": [
+      {
+        "priority": "1",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "David Rossi",
+        "assetId": "32254_v9_bb",
+        "name": "Joe Mantegna"
+      },
+      {
+        "priority": "2",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Emily Prentiss",
+        "assetId": "79711_v9_ba",
+        "name": "Paget Brewster"
+      },
+      {
+        "priority": "3",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Dr. Spencer Reid",
+        "assetId": "324457_v9_bb",
+        "name": "Matthew Gubler"
+      },
+      {
+        "priority": "4",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Jennifer Jareau",
+        "assetId": "200785_v9_bb",
+        "name": "A.J. Cook"
+      },
+      {
+        "priority": "5",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Dr. Tara Lewis",
+        "assetId": "218785_v9_bc",
+        "name": "Aisha Tyler"
+      },
+      {
+        "priority": "6",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Penelope Garcia",
+        "assetId": "434630_v9_ba",
+        "name": "Kirsten Vangsness"
+      },
+      {
+        "priority": "7",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Matt Simmons",
+        "assetId": "532422_v9_bb",
+        "name": "Daniel Henney"
+      },
+      {
+        "priority": "8",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Stephen Walker",
+        "assetId": "168976_v9_bb",
+        "name": "Damon Gupton"
+      },
+      {
+        "priority": "9",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Aaron \"Hotch\" Hotchner",
+        "assetId": "75480_v9_bb",
+        "name": "Thomas Gibson"
+      },
+      {
+        "priority": "10",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Derek Morgan",
+        "assetId": "67480_v9_bb",
+        "name": "Shemar Moore"
+      },
+      {
+        "priority": "11",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Elle Greenaway",
+        "assetId": "157616_v9_bb",
+        "name": "Lola Glaudini"
+      },
+      {
+        "priority": "12",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Kate Callahan",
+        "assetId": "40547_v9_bb",
+        "name": "Jennifer Hewitt"
+      },
+      {
+        "priority": "13",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Alex Blake",
+        "assetId": "30616_v9_bb",
+        "name": "Jeanne Tripplehorn"
+      },
+      {
+        "priority": "14",
+        "type": "Cast",
+        "role": "Actor",
+        "characterName": "Ashley Seaver",
+        "assetId": "278940_v9_ba",
+        "name": "Rachel Nichols"
+      }
+    ],
+    "crew": [
+      {
+        "priority": "15",
+        "type": "Crew",
+        "role": "Executive Producer",
+        "characterName": "",
+        "assetId": "228438_v9_bb",
+        "name": "Mark Gordon"
+      },
+      {
+        "priority": "16",
+        "type": "Crew",
+        "role": "Executive Producer",
+        "characterName": "",
+        "assetId": "238729_v9_ba",
+        "name": "Erica Messer"
+      },
+      {
+        "priority": "17",
+        "type": "Crew",
+        "role": "Executive Producer",
+        "characterName": "",
+        "assetId": "",
+        "name": "Breen Frazier"
+      }
+    ],
+    "upcomingEpisode": {
+      "episodeTitle": "The Inspiration",
+      "seasonNumber": "9",
+      "episodeNumber": "1",
+      "releaseYear": "",
+      "synopsis": "The team tracks an increasingly devolving killer to Arizona; the team suspects Hotch is in the running to be the unit chief.",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "originalAirDate": "2013-09-25T00:00Z",
+      "tmsID": "ep007537910201",
+      "displayRating": "TV-14",
+      "timings": [
+        {
+          "time": "2020-11-10T16:00Z",
+          "channels": [
+            {
+              "time": "2020-11-10T16:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910201",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=R3b1eJuxLFo"
+        },
+        {
+          "tmsID": "ep007537910201",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/the-inspiration/id686261515?i%3D715674894"
+        },
+        {
+          "tmsID": "ep007537910201",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-The-Inspiration/475564"
+        }
+      ]
+    }
+  },
+  "upcomingEpisodeTab": [
+    {
+      "originalAirDate": "2013-09-25T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910201",
+      "seasonNumber": "9",
+      "episodeNumber": "1",
+      "episodeTitle": "The Inspiration",
+      "releaseYear": "",
+      "synopsis": "The team tracks an increasingly devolving killer to Arizona; the team suspects Hotch is in the running to be the unit chief.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-10T16:00Z",
+          "channels": [
+            {
+              "time": "2020-11-10T16:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910201",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=R3b1eJuxLFo"
+        },
+        {
+          "tmsID": "ep007537910201",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/the-inspiration/id686261515?i%3D715674894"
+        },
+        {
+          "tmsID": "ep007537910201",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-The-Inspiration/475564"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2013-10-02T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910202",
+      "seasonNumber": "9",
+      "episodeNumber": "2",
+      "episodeTitle": "The Inspired",
+      "releaseYear": "",
+      "synopsis": "As the hunt for a ritualistic killer continues, a bizarre familial connection could help the team zero in on the suspect.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-10T17:00Z",
+          "channels": [
+            {
+              "time": "2020-11-10T17:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910202",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=_Gl2W6fywMY"
+        },
+        {
+          "tmsID": "ep007537910202",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/the-inspired/id686261515?i%3D719328968"
+        },
+        {
+          "tmsID": "ep007537910202",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-The-Inspired/475568"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2013-10-09T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910203",
+      "seasonNumber": "9",
+      "episodeNumber": "3",
+      "episodeTitle": "Final Shot",
+      "releaseYear": "",
+      "synopsis": "The BAU team must determine if the anniversary of the Kennedy assassination is a motivating factor when a sniper strikes Dallas.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-10T18:00Z",
+          "channels": [
+            {
+              "time": "2020-11-10T18:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910203",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=48JEDIcoFc8"
+        },
+        {
+          "tmsID": "ep007537910203",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/final-shot/id686261515?i%3D722626374"
+        },
+        {
+          "tmsID": "ep007537910203",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Final-Shot/475572"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2013-10-16T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910204",
+      "seasonNumber": "9",
+      "episodeNumber": "4",
+      "episodeTitle": "To Bear Witness",
+      "releaseYear": "",
+      "synopsis": "The BAU team meets the new section chief (Esai Morales), who shares a long history with J.J.; an unknown subject leaves victims unable to communicate.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-10T19:00Z",
+          "channels": [
+            {
+              "time": "2020-11-10T19:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910204",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=bPBxBiGbvqk"
+        },
+        {
+          "tmsID": "ep007537910204",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/to-bear-witness/id686261515?i%3D726704307"
+        },
+        {
+          "tmsID": "ep007537910204",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-To-Bear-Witness/475576"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2013-10-23T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910207",
+      "seasonNumber": "9",
+      "episodeNumber": "5",
+      "episodeTitle": "Route 66",
+      "releaseYear": "",
+      "synopsis": "As Hotch fights for his life after being stabbed, he has visions of his late wife and his nemesis; when a teen goes missing, suspicions arise about her estranged father.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-10T20:00Z",
+          "channels": [
+            {
+              "time": "2020-11-10T20:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910207",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=2pUMYVJvBxw"
+        },
+        {
+          "tmsID": "ep007537910207",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/route-66/id686261515?i%3D731226359"
+        },
+        {
+          "tmsID": "ep007537910207",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Route-66/475580"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2013-10-30T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910206",
+      "seasonNumber": "9",
+      "episodeNumber": "6",
+      "episodeTitle": "In the Blood",
+      "releaseYear": "",
+      "synopsis": "Ritualistic murders lead the team to believe their suspect may have a fascination with the Salem witch trials; Garcia plans a Day of the Dead celebration.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-10T21:00Z",
+          "channels": [
+            {
+              "time": "2020-11-10T21:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910206",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=g0g961iCVIA"
+        },
+        {
+          "tmsID": "ep007537910206",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/in-the-blood/id686261515?i%3D734937124"
+        },
+        {
+          "tmsID": "ep007537910206",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-In-The-Blood/475584"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2013-11-06T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910208",
+      "seasonNumber": "9",
+      "episodeNumber": "7",
+      "episodeTitle": "Gatekeeper",
+      "releaseYear": "",
+      "synopsis": "A series of strangulations leads the team to look for a killer who keeps mementos of his victims; Rossi's favorite bar is in danger of closing.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-10T22:00Z",
+          "channels": [
+            {
+              "time": "2020-11-10T22:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910208",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=6pWcvbGJGs0"
+        },
+        {
+          "tmsID": "ep007537910208",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/gatekeeper/id686261515?i%3D738930380"
+        },
+        {
+          "tmsID": "ep007537910208",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Gatekeeper/475588"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2013-11-13T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910209",
+      "seasonNumber": "9",
+      "episodeNumber": "8",
+      "episodeTitle": "The Return",
+      "releaseYear": "",
+      "synopsis": "The team searches for missing teens who are suspects in a series of mass murders in Chicago.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-10T23:00Z",
+          "channels": [
+            {
+              "time": "2020-11-10T23:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910209",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=8YyLmAN6BwY"
+        },
+        {
+          "tmsID": "ep007537910209",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/the-return/id686261515?i%3D744741263"
+        },
+        {
+          "tmsID": "ep007537910209",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-The-Return/475592"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2013-11-20T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910210",
+      "seasonNumber": "9",
+      "episodeNumber": "9",
+      "episodeTitle": "Strange Fruit",
+      "releaseYear": "",
+      "synopsis": "When skeletons are discovered in the backyard of a home in Virginia, family secrets and past racial divisions are brought to light.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-11T00:00Z",
+          "channels": [
+            {
+              "time": "2020-11-11T00:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910210",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=ySr7s-rta1A"
+        },
+        {
+          "tmsID": "ep007537910210",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/strange-fruit/id686261515?i%3D759737396"
+        },
+        {
+          "tmsID": "ep007537910210",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Strange-Fruit/475596"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2013-11-27T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910211",
+      "seasonNumber": "9",
+      "episodeNumber": "10",
+      "episodeTitle": "The Caller",
+      "releaseYear": "",
+      "synopsis": "When a young boy disappears from his home in St. Louis, the team examines a similar cold case for clues.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-11T01:00Z",
+          "channels": [
+            {
+              "time": "2020-11-11T01:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910211",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=gE9QFu_I8nM"
+        },
+        {
+          "tmsID": "ep007537910211",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/the-caller/id686261515?i%3D767089823"
+        },
+        {
+          "tmsID": "ep007537910211",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-The-Caller/475600"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2020-01-29T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910358",
+      "seasonNumber": "15",
+      "episodeNumber": "5",
+      "episodeTitle": "Ghost",
+      "releaseYear": "",
+      "synopsis": "Following a series of fatal shootings, the BAU team travels to Illinois to investigate what appears to be a copycat serial killer.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-11T02:00Z",
+          "channels": [
+            {
+              "time": "2020-11-11T02:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910358",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/ghost/id1488180994?i%3D1496912999"
+        },
+        {
+          "tmsID": "ep007537910358",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Ghost/1328197"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2020-02-05T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910359",
+      "seasonNumber": "15",
+      "episodeNumber": "6",
+      "episodeTitle": "Date Night",
+      "releaseYear": "",
+      "synopsis": "After a father and daughter get kidnapped, a former foe of the BAU returns with very specific demands for Dr. Reid.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-11T03:00Z",
+          "channels": [
+            {
+              "time": "2020-11-11T03:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910359",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/date-night/id1488180994?i%3D1497845965"
+        },
+        {
+          "tmsID": "ep007537910359",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Date-Night/1328200"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2020-02-05T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910360",
+      "seasonNumber": "15",
+      "episodeNumber": "7",
+      "episodeTitle": "Rusty",
+      "releaseYear": "",
+      "synopsis": "When the BAU team travels to Denver to investigate several murders, Prentiss is forced to evaluate her relationship with Special Agent Andrew Mendoza.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-11T04:00Z",
+          "channels": [
+            {
+              "time": "2020-11-11T04:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910360",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/rusty/id1488180994?i%3D1497857584"
+        },
+        {
+          "tmsID": "ep007537910360",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Rusty/1328203"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2020-02-12T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910361",
+      "seasonNumber": "15",
+      "episodeNumber": "8",
+      "episodeTitle": "Family Tree",
+      "releaseYear": "",
+      "synopsis": "Prentiss and J.J. are faced with important decisions to make about their futures as the BAU travels to Texas to investigate a series of murdered businessmen.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-11T05:00Z",
+          "channels": [
+            {
+              "time": "2020-11-11T05:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910361",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/family-tree/id1488180994?i%3D1498727117"
+        },
+        {
+          "tmsID": "ep007537910361",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Family-Tree/1328206"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2013-12-11T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910212",
+      "seasonNumber": "9",
+      "episodeNumber": "11",
+      "episodeTitle": "Bully",
+      "releaseYear": "",
+      "synopsis": "Blake must work with her retired police captain father and her detective brother to solve a series of murders in Kansas City.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-13T16:00Z",
+          "channels": [
+            {
+              "time": "2020-11-13T16:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910212",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=bDfV-eyOOvk"
+        },
+        {
+          "tmsID": "ep007537910212",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/bully/id686261515?i%3D779157912"
+        },
+        {
+          "tmsID": "ep007537910212",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Bully/475604"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-01-15T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910214",
+      "seasonNumber": "9",
+      "episodeNumber": "12",
+      "episodeTitle": "The Black Queen",
+      "releaseYear": "",
+      "synopsis": "A murder investigation results in Garcia delving into her hacker past -- and reconnecting with a former flame.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-13T17:00Z",
+          "channels": [
+            {
+              "time": "2020-11-13T17:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910214",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=qqf9r8Zffy8"
+        },
+        {
+          "tmsID": "ep007537910214",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/the-black-queen/id686261515?i%3D797270911"
+        },
+        {
+          "tmsID": "ep007537910214",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-The-Black-Queen/475608"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-01-22T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910215",
+      "seasonNumber": "9",
+      "episodeNumber": "13",
+      "episodeTitle": "The Road Home",
+      "releaseYear": "",
+      "synopsis": "As the team searches for a vigilante killer in Cleveland, Rossi's former Marine sergeant goes missing in Los Angeles; J.J.'s secret catches up with her.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-13T18:00Z",
+          "channels": [
+            {
+              "time": "2020-11-13T18:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910215",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=Gfp7JEYRT5E"
+        },
+        {
+          "tmsID": "ep007537910215",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/the-road-home/id686261515?i%3D804439020"
+        },
+        {
+          "tmsID": "ep007537910215",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-The-Road-Home/475612"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-02-05T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910205",
+      "seasonNumber": "9",
+      "episodeNumber": "14",
+      "episodeTitle": "200",
+      "releaseYear": "",
+      "synopsis": "When J.J. is abducted, the team looks into her time at the State Department in hope of finding clues regarding her disappearance.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-13T19:00Z",
+          "channels": [
+            {
+              "time": "2020-11-13T19:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910205",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=AocjLszwpuM"
+        },
+        {
+          "tmsID": "ep007537910205",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/200/id686261515?i%3D814838270"
+        },
+        {
+          "tmsID": "ep007537910205",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-200/475616"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-02-17T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910216",
+      "seasonNumber": "9",
+      "episodeNumber": "15",
+      "episodeTitle": "Mr. & Mrs. Anderson",
+      "releaseYear": "",
+      "synopsis": "The team searches for a pair of suspects responsible for several murders near Pittsburgh; Morgan and Garcia make Valentine's Day plans with their significant others.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-13T20:00Z",
+          "channels": [
+            {
+              "time": "2020-11-13T20:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910216",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=keii5dWZevU"
+        },
+        {
+          "tmsID": "ep007537910216",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/mr-mrs-anderson/id686261515?i%3D824744768"
+        },
+        {
+          "tmsID": "ep007537910216",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Mr-Mrs-Anderson/475620"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-02-26T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910217",
+      "seasonNumber": "9",
+      "episodeNumber": "16",
+      "episodeTitle": "Gabby",
+      "releaseYear": "",
+      "synopsis": "The BAU makes startling discoveries as they search for a 4-year-old girl who went missing while staying with a relative.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-13T21:00Z",
+          "channels": [
+            {
+              "time": "2020-11-13T21:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910217",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=cW8-dnb_DkI"
+        },
+        {
+          "tmsID": "ep007537910217",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/gabby/id686261515?i%3D828749701"
+        },
+        {
+          "tmsID": "ep007537910217",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Gabby/475624"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-03-05T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910219",
+      "seasonNumber": "9",
+      "episodeNumber": "17",
+      "episodeTitle": "Persuasion",
+      "releaseYear": "",
+      "synopsis": "The BAU must determine the true cause and motive when several drowned people are discovered in the Las Vegas desert.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-13T22:00Z",
+          "channels": [
+            {
+              "time": "2020-11-13T22:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910219",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=p5Y4QdzPGlc"
+        },
+        {
+          "tmsID": "ep007537910219",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/persuasion/id686261515?i%3D834714128"
+        },
+        {
+          "tmsID": "ep007537910219",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Persuasion/475628"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-03-12T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910220",
+      "seasonNumber": "9",
+      "episodeNumber": "18",
+      "episodeTitle": "Rabid",
+      "releaseYear": "",
+      "synopsis": "Three bodies bitten by humans and animals are found in a shallow grave; Garcia and Reid hide their preparation for a company fitness test from Morgan.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-13T23:00Z",
+          "channels": [
+            {
+              "time": "2020-11-13T23:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910220",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=wdwJeAbEBds"
+        },
+        {
+          "tmsID": "ep007537910220",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/rabid/id686261515?i%3D839308928"
+        },
+        {
+          "tmsID": "ep007537910220",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Rabid/475632"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-03-19T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910218",
+      "seasonNumber": "9",
+      "episodeNumber": "19",
+      "episodeTitle": "The Edge of Winter",
+      "releaseYear": "",
+      "synopsis": "Morgan's visit with a survivor of unusual stabbings in upstate New York leads to more questions about the case.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-14T00:00Z",
+          "channels": [
+            {
+              "time": "2020-11-14T00:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910218",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=kDbLxLyTWT0"
+        },
+        {
+          "tmsID": "ep007537910218",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/the-edge-of-winter/id686261515?i%3D843598329"
+        },
+        {
+          "tmsID": "ep007537910218",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-The-Edge-Of-Winter/475636"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-04-02T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910221",
+      "seasonNumber": "9",
+      "episodeNumber": "20",
+      "episodeTitle": "Blood Relations",
+      "releaseYear": "",
+      "synopsis": "The discovery of two murder victims in West Virginia uncovers a long-simmering feud between two families.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-14T01:00Z",
+          "channels": [
+            {
+              "time": "2020-11-14T01:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910221",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=T-4hS0e6Ykc"
+        },
+        {
+          "tmsID": "ep007537910221",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/blood-relations/id686261515?i%3D853427745"
+        },
+        {
+          "tmsID": "ep007537910221",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Blood-Relations/475640"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-04-09T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910224",
+      "seasonNumber": "9",
+      "episodeNumber": "21",
+      "episodeTitle": "What Happens in Mecklinburg ...",
+      "releaseYear": "",
+      "synopsis": "The team searches for a commonality when a series of target abductions take place; Savannah is frustrated with Morgan's traveling.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-14T02:00Z",
+          "channels": [
+            {
+              "time": "2020-11-14T02:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910224",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=oka84UcQn1g"
+        },
+        {
+          "tmsID": "ep007537910224",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/what-happens-in-mecklinburg/id686261515?i%3D858962224"
+        },
+        {
+          "tmsID": "ep007537910224",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Criminal-Minds-What-Happens-in-Mecklinburg/475644"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-04-30T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910225",
+      "seasonNumber": "9",
+      "episodeNumber": "22",
+      "episodeTitle": "Fatal",
+      "releaseYear": "",
+      "synopsis": "When people are killed by arsenic poisoning and handwritten death threats are found, the team pursues a suspect fascinated by Greek mythology; Hotch is worried about participating in a Career Day at Jack's school.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-14T03:00Z",
+          "channels": [
+            {
+              "time": "2020-11-14T03:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910225",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=P3F-PmGEp0E"
+        },
+        {
+          "tmsID": "ep007537910225",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/fatal/id686261515?i%3D871587755"
+        },
+        {
+          "tmsID": "ep007537910225",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Fatal/475648"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-05-07T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910226",
+      "seasonNumber": "9",
+      "episodeNumber": "23",
+      "episodeTitle": "Angels",
+      "releaseYear": "",
+      "synopsis": "When prostitutes are murdered in Texas, their deaths seem to have religious overtones; members of the team are put at risk throughout the course of the investigation.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-14T04:00Z",
+          "channels": [
+            {
+              "time": "2020-11-14T04:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910226",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=uSsh-AkO0eA"
+        },
+        {
+          "tmsID": "ep007537910226",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/angels/id686261515?i%3D875188874"
+        },
+        {
+          "tmsID": "ep007537910226",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Angels/540018"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-05-14T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910223",
+      "seasonNumber": "9",
+      "episodeNumber": "24",
+      "episodeTitle": "Demons",
+      "releaseYear": "",
+      "synopsis": "The investigation in Texas reveals a deep web of corruption; Garcia must save a friend.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-14T05:00Z",
+          "channels": [
+            {
+              "time": "2020-11-14T05:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910223",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=bmuoZ1HVTKA"
+        },
+        {
+          "tmsID": "ep007537910223",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/demons/id686261515?i%3D878444709"
+        },
+        {
+          "tmsID": "ep007537910223",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Demons/540022"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-10-01T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910222",
+      "seasonNumber": "10",
+      "episodeNumber": "1",
+      "episodeTitle": "X",
+      "releaseYear": "",
+      "synopsis": "The team investigates a series of murders with unidentifiable victims in Bakersfield, Calif.; agent Kate Callahan joins the team.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-17T16:00Z",
+          "channels": [
+            {
+              "time": "2020-11-17T16:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910222",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=6lzs-lOp_1k"
+        },
+        {
+          "tmsID": "ep007537910222",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/x/id909052330?i%3D924738877"
+        },
+        {
+          "tmsID": "ep007537910222",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-X/576750"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-10-08T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910228",
+      "seasonNumber": "10",
+      "episodeNumber": "2",
+      "episodeTitle": "Burn",
+      "releaseYear": "",
+      "synopsis": "The team members search for a vengeful suspect who was once abused; Garcia travels to Texas to confront the person she shot.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-17T17:00Z",
+          "channels": [
+            {
+              "time": "2020-11-17T17:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910228",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=95My8soovF8"
+        },
+        {
+          "tmsID": "ep007537910228",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/burn/id909052330?i%3D927207978"
+        },
+        {
+          "tmsID": "ep007537910228",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Burn/576758"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-10-15T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910227",
+      "seasonNumber": "10",
+      "episodeNumber": "3",
+      "episodeTitle": "A Thousand Suns",
+      "releaseYear": "",
+      "synopsis": "The BAU team goes to Colorado to investigate when a passenger jet crashes; the incident reminds Kate of a family tragedy.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-17T18:00Z",
+          "channels": [
+            {
+              "time": "2020-11-17T18:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910227",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=Nz-ImM_jYak"
+        },
+        {
+          "tmsID": "ep007537910227",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/a-thousand-suns/id909052330?i%3D929914196"
+        },
+        {
+          "tmsID": "ep007537910227",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-A-Thousand-Suns/576762"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-10-22T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910229",
+      "seasonNumber": "10",
+      "episodeNumber": "4",
+      "episodeTitle": "The Itch",
+      "releaseYear": "",
+      "synopsis": "A body is found covered in scratches, leading the BAU to believe that the person responsible has a chronic skin disorder.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-17T19:00Z",
+          "channels": [
+            {
+              "time": "2020-11-17T19:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910229",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=Mm3wJ3jvRqU"
+        },
+        {
+          "tmsID": "ep007537910229",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/the-itch/id909052330?i%3D932212626"
+        },
+        {
+          "tmsID": "ep007537910229",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-The-Itch/576766"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-10-29T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910230",
+      "seasonNumber": "10",
+      "episodeNumber": "5",
+      "episodeTitle": "Boxed In",
+      "releaseYear": "",
+      "synopsis": "A child reappears one year after he went missing -- but the team must work quickly when a trick-or-treater disappears under similar circumstances.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-17T20:00Z",
+          "channels": [
+            {
+              "time": "2020-11-17T20:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910230",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=Xjvu1enMFUI"
+        },
+        {
+          "tmsID": "ep007537910230",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/boxed-in/id909052330?i%3D934656034"
+        },
+        {
+          "tmsID": "ep007537910230",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Boxed-In/576770"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-11-05T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910231",
+      "seasonNumber": "10",
+      "episodeNumber": "6",
+      "episodeTitle": "If the Shoe Fits",
+      "releaseYear": "",
+      "synopsis": "The team has a difficult time finding a common denominator among several male victims in Montana; J.J. struggles with feelings about her sister's death.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-17T21:00Z",
+          "channels": [
+            {
+              "time": "2020-11-17T21:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910231",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=EAii42-T0L0"
+        },
+        {
+          "tmsID": "ep007537910231",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-If-The-Shoe-Fits/576774"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-11-12T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910232",
+      "seasonNumber": "10",
+      "episodeNumber": "7",
+      "episodeTitle": "Hashtag",
+      "releaseYear": "",
+      "synopsis": "The team believes a suspect is taking on the persona of an Internet urban legend when people with substantial social media followings are found dead; Savannah and Morgan try to find time for each other.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-17T22:00Z",
+          "channels": [
+            {
+              "time": "2020-11-17T22:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910232",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=vRU7ehOQ1wc"
+        },
+        {
+          "tmsID": "ep007537910232",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Hashtag/576778"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-11-19T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910233",
+      "seasonNumber": "10",
+      "episodeNumber": "8",
+      "episodeTitle": "The Boys of Sudworth Place",
+      "releaseYear": "",
+      "synopsis": "As the team investigates the disappearance of a prominent Boston attorney, secrets of the man's past are revealed.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-17T23:00Z",
+          "channels": [
+            {
+              "time": "2020-11-17T23:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910233",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=hwZNy_lEI7E"
+        },
+        {
+          "tmsID": "ep007537910233",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-The-Boys-of-Sudworth-Place/576782"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-11-26T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910234",
+      "seasonNumber": "10",
+      "episodeNumber": "9",
+      "episodeTitle": "Fate",
+      "releaseYear": "",
+      "synopsis": "The BAU tracks a conflicted killer in Virginia who feels remorseful after committing crimes; Rossi receives a visitor.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-18T00:00Z",
+          "channels": [
+            {
+              "time": "2020-11-18T00:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910234",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=WO7DG_QCEbA"
+        },
+        {
+          "tmsID": "ep007537910234",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Fate/576786"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2014-12-10T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910235",
+      "seasonNumber": "10",
+      "episodeNumber": "10",
+      "episodeTitle": "Amelia Porter",
+      "releaseYear": "",
+      "synopsis": "When the BAU heads to Salt Lake City to look into a triple homicide, their investigation may lead to a fugitive.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-18T01:00Z",
+          "channels": [
+            {
+              "time": "2020-11-18T01:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910235",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=57t7-DxeRBc"
+        },
+        {
+          "tmsID": "ep007537910235",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Amelia-Porter/576790"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2020-02-19T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910362",
+      "seasonNumber": "15",
+      "episodeNumber": "9",
+      "episodeTitle": "Face Off",
+      "releaseYear": "",
+      "synopsis": "Rossi develops some new theories about Everett Lynch, aka The Chameleon; the team sets out on an epic hunt to capture Lynch.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-18T02:00Z",
+          "channels": [
+            {
+              "time": "2020-11-18T02:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910362",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/face-off/id1488180994?i%3D1499614385"
+        },
+        {
+          "tmsID": "ep007537910362",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Face-Off/1328209"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2020-02-19T00:00Z",
+      "programGenres": "Crime drama|Drama|Law|Mystery|Thriller",
+      "tmsID": "ep007537910363",
+      "seasonNumber": "15",
+      "episodeNumber": "10",
+      "episodeTitle": "And in the End",
+      "releaseYear": "",
+      "synopsis": "While hallucinating after he gets a brain injury, Dr. Reid is visited by ghosts from his past; the BAU makes a shocking discovery about Lynch that affects Rossi personally; the team comes together to celebrate Rossi's retirement.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-18T03:00Z",
+          "channels": [
+            {
+              "time": "2020-11-18T03:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910363",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/and-in-the-end/id1488180994?i%3D1499619501"
+        },
+        {
+          "tmsID": "ep007537910363",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-And-in-the-End/1328212"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2015-01-21T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910237",
+      "seasonNumber": "10",
+      "episodeNumber": "12",
+      "episodeTitle": "Anonymous",
+      "releaseYear": "",
+      "synopsis": "The team searches for a killer who calls the authorities before committing his crimes; as Rossi prepares for a visit with his daughter, he gets news about the death of an old friend.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-18T04:00Z",
+          "channels": [
+            {
+              "time": "2020-11-18T04:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910237",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=nDlY1joodGo"
+        },
+        {
+          "tmsID": "ep007537910237",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/anonymous/id909052330?i%3D960142632"
+        },
+        {
+          "tmsID": "ep007537910237",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Anonymous/576798"
+        }
+      ]
+    },
+    {
+      "originalAirDate": "2015-01-28T00:00Z",
+      "programGenres": "Crime drama|Mystery|Thriller",
+      "tmsID": "ep007537910238",
+      "seasonNumber": "10",
+      "episodeNumber": "13",
+      "episodeTitle": "Nelson's Sparrow",
+      "releaseYear": "",
+      "synopsis": "The members of the BAU team are brought back to their origins as they look at one of Gideon and Rossi's old cases.",
+      "displayRating": "TV-14",
+      "isNew": false,
+      "isLive": false,
+      "isPremier": false,
+      "isFinale": false,
+      "tags": "STEREO|CC|DVS",
+      "timings": [
+        {
+          "time": "2020-11-18T05:00Z",
+          "channels": [
+            {
+              "time": "2020-11-18T05:00Z",
+              "prgSvcID": "24024",
+              "callSign": "WCPXDT",
+              "lcn": "38.1",
+              "channelAssetId": "s18633_h3_aa"
+            }
+          ]
+        }
+      ],
+      "ovdDetails": [
+        {
+          "tmsID": "ep007537910238",
+          "license": "free",
+          "price": "-",
+          "currency": "",
+          "videoQuality": "SD",
+          "hostName": "YouTube",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/youtube/alpha_light.png",
+          "url": "https://www.youtube.com/watch?v=dMuS67kmXbw"
+        },
+        {
+          "tmsID": "ep007537910238",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "iTunes Store",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/itunes-store/alpha_light.png",
+          "url": "https://itunes.apple.com/us/tv-season/nelsons-sparrow/id909052330?i%3D962210963"
+        },
+        {
+          "tmsID": "ep007537910238",
+          "license": "purchase",
+          "price": "1.99",
+          "currency": "USD",
+          "videoQuality": "SD",
+          "hostName": "VUDU",
+          "hostImage": "http://www.casttv.com/misc/ovc_sources/vudu/alpha_light.png",
+          "url": "https://www.vudu.com/content/movies/details/Criminal-Minds-Nelsons-Sparrow/576802"
+        }
+      ]
+    }
+  ]
+}

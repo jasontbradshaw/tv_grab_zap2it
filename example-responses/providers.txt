@@ -1,0 +1,207 @@
+$ curl --verbose 'https://tvlistings.zap2it.com/gapzap_webapi/api/Providers/getPostalCodeProviders/USA/78723/gapzap/en'
+*   Trying 44.227.137.234:443...
+* Connected to tvlistings.zap2it.com (44.227.137.234) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+* TLSv1.2 (IN), TLS handshake, Certificate (11):
+* TLSv1.2 (IN), TLS handshake, Server key exchange (12):
+* TLSv1.2 (IN), TLS handshake, Server finished (14):
+* TLSv1.2 (OUT), TLS handshake, Client key exchange (16):
+* TLSv1.2 (OUT), TLS change cipher, Change cipher spec (1):
+* TLSv1.2 (OUT), TLS handshake, Finished (20):
+* TLSv1.2 (IN), TLS handshake, Finished (20):
+* SSL connection using TLSv1.2 / ECDHE-RSA-AES128-GCM-SHA256
+* ALPN, server accepted to use h2
+* Server certificate:
+*  subject: OU=Domain Control Validated; CN=*.zap2it.com
+*  start date: Sep 21 15:00:51 2020 GMT
+*  expire date: Sep 21 15:00:51 2021 GMT
+*  subjectAltName: host "tvlistings.zap2it.com" matched cert's "*.zap2it.com"
+*  issuer: C=US; ST=Arizona; L=Scottsdale; O=GoDaddy.com, Inc.; OU=http://certs.godaddy.com/repository/; CN=Go Daddy Secure Certificate Authority - G2
+*  SSL certificate verify ok.
+* Using HTTP2, server supports multi-use
+* Connection state changed (HTTP/2 confirmed)
+* Copying HTTP/2 data in stream buffer to connection buffer after upgrade: len=0
+* Using Stream ID: 1 (easy handle 0x8418100)
+> GET /gapzap_webapi/api/Providers/getPostalCodeProviders/USA/78723/gapzap/en HTTP/2
+> Host: tvlistings.zap2it.com
+> user-agent: curl/7.72.0
+> accept: */*
+>
+* Connection state changed (MAX_CONCURRENT_STREAMS == 128)!
+< HTTP/2 200
+< date: Thu, 05 Nov 2020 12:37:39 GMT
+< content-type: application/json; charset=utf-8
+< content-length: 2950
+< server: Apache
+< cache-control: no-cache
+< expires: -1
+< pragma: no-cache
+< vary: Accept-Encoding
+< access-control-allow-origin: *
+<
+{
+  "DSTUTCOffset": "-300",
+  "StdUTCOffset": "-360",
+  "DSTEnd": "2020-11-01T02:00Z",
+  "DSTStart": "2020-03-08T02:00Z",
+  "primetime": "19",
+  "Providers": [
+    {
+      "type": "CABLE",
+      "device": "X",
+      "lineupId": "USA-TX42500-DEFAULT",
+      "name": "Charter Spectrum - Digital",
+      "location": "Austin",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "78723",
+      "headendId": "TX42500"
+    },
+    {
+      "type": "CABLE",
+      "device": "X",
+      "lineupId": "USA-TX66960-DEFAULT",
+      "name": "AT&T U-verse TV - Digital",
+      "location": "Austin",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "78723",
+      "headendId": "TX66960"
+    },
+    {
+      "type": "CABLE",
+      "device": "X",
+      "lineupId": "USA-TX60430-DEFAULT",
+      "name": "Grande Communications - Digital",
+      "location": "Austin",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "78723",
+      "headendId": "TX60430"
+    },
+    {
+      "type": "CABLE",
+      "device": "X",
+      "lineupId": "USA-TX70474-DEFAULT",
+      "name": "Google Fiber TV - Digital",
+      "location": "Austin",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "78723",
+      "headendId": "TX70474"
+    },
+    {
+      "type": "OTA",
+      "device": "",
+      "lineupId": "USA-lineupId-DEFAULT",
+      "name": "Local Over the Air Broadcast",
+      "location": "",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "78723",
+      "headendId": "lineupId"
+    },
+    {
+      "type": "CABLE",
+      "device": "-",
+      "lineupId": "USA-TX42500-DEFAULT",
+      "name": "Charter Spectrum - Cable",
+      "location": "Austin",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "78723",
+      "headendId": "TX42500"
+    },
+    {
+      "type": "SATELLITE",
+      "device": "-",
+      "lineupId": "USA-DITV635-DEFAULT",
+      "name": "DIRECTV Austin - Satellite",
+      "location": "Austin",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "78723",
+      "headendId": "DITV635"
+    },
+    {
+      "type": "SATELLITE",
+      "device": "-",
+      "lineupId": "USA-DISH635-DEFAULT",
+      "name": "DISH Austin - Satellite",
+      "location": "Austin",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "78723",
+      "headendId": "DISH635"
+    },
+    {
+      "type": "CABLE",
+      "device": "-",
+      "lineupId": "USA-TX60430-DEFAULT",
+      "name": "Grande Communications - Cable",
+      "location": "Austin",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "78723",
+      "headendId": "TX60430"
+    },
+    {
+      "type": "SATELLITE",
+      "device": "-",
+      "lineupId": "USA-ECHOST-DEFAULT",
+      "name": "DISH Network - Satellite",
+      "location": "USA",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "ALL",
+      "headendId": "ECHOST"
+    },
+    {
+      "type": "SATELLITE",
+      "device": "-",
+      "lineupId": "USA-AFN-DEFAULT",
+      "name": "AFN Satellite - Satellite",
+      "location": "USA",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "ALL",
+      "headendId": "AFN"
+    },
+    {
+      "type": "SATELLITE",
+      "device": "-",
+      "lineupId": "USA-C-BAND-DEFAULT",
+      "name": "C-Band - Satellite",
+      "location": "USA",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "ALL",
+      "headendId": "C-BAND"
+    },
+    {
+      "type": "SATELLITE",
+      "device": "-",
+      "lineupId": "USA-GLRYSTR-DEFAULT",
+      "name": "GLORYSTAR - Satellite",
+      "location": "USA",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "ALL",
+      "headendId": "GLRYSTR"
+    },
+    {
+      "type": "SATELLITE",
+      "device": "-",
+      "lineupId": "USA-DITV-DEFAULT",
+      "name": "DIRECTV - Satellite",
+      "location": "USA",
+      "timezone": "",
+      "isDefaultProvider": "BLANK",
+      "postalCode": "ALL",
+      "headendId": "DITV"
+    }
+  ]
+}
