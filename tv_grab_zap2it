@@ -8,10 +8,6 @@ require 'ostruct'
 require 'pathname'
 require 'uri'
 
-# Apparent zap2it API
-# * 'https://tvlistings.zap2it.com/api/program/overviewDetails'; data = 'programSeriesID=' + EPseries
-# * 'http://tvlistings.zap2it.com/api/grid?lineupId=&timespan=3&headendId=' + lineupcode + '&country=' + country + '&device=' + device + '&postalCode=' + zipcode + '&time=' + str(gridtime) + '&pref=-&userId=-'
-
 PROGRAM_NAME = 'tv_grab_zap2it'
 VERSION = '0.0.1'
 RELEASE =
@@ -203,9 +199,9 @@ class Arg
 
   def uri
     self.parser do |value|
-      URI.parse(full_path)
+      URI.parse(value)
     rescue URI::InvalidURIError => err
-      raise ArgumentError, "{{ name }} of #{full_path.inspect} is not a valid URI: #{err}"
+      raise ArgumentError, "{{ name }} of #{value.inspect} is not a valid URI: #{err}"
     end
   end
 
@@ -672,7 +668,13 @@ def fetch(
       raise ArgumentError, "Invalid URI from path #{full_path.inspect}: #{err}"
     end
 
-  # TODO: Read from the cache instead if one was specified!
+  # TODO: Read from the cache if a value exists there!
+  _cache_key = Digest::SHA2
+    .new(512)
+    .update(u.to_s) # The full request URL
+    .update(URI.encode_www_form(data || {})) # POST data for the request, if any
+    .hexdigest()
+    .slice(0..32)
 
   # If given data, make a POST request. Otherwise, make a GET request.
   res =
@@ -709,20 +711,20 @@ def fetch_providers(
   postal_code, # String, e.g. `12345` or `A1A 1A1`
   cache_filename: nil # Pathname | nil
 ) # Array<Provider>
-  lineup_json = fetch(
-    'gapzap_webapi/api/Providers/getPostalCodeProviders',
+  provider_json = fetch(
+    '/gapzap_webapi/api/Providers/getPostalCodeProviders',
     country,
     postal_code,
-    'gapzap/en',
+    '/gapzap/en',
 
     # This response is expected to change very infrequently, if ever.
-    cache_ttl_seconds: 1 * TimeInterval::WEEKS,
     cache_filename: cache_filename,
+    cache_ttl_seconds: 1 * TimeInterval::WEEKS,
   )
 
-  lineup_json
+  provider_json
     .Providers
-    .sort_by { |p| [p.type, p.name] } # Do a human-friendly sort for display
+    .sort_by { |p| [p.type, p.name] } # A human-friendly sort for display
     .map do |p|
       Provider.new(
         country: country,
@@ -750,18 +752,52 @@ def fetch_provider(
 
   providers.find do |provider|
     (
-      provider.country = country &&
-      provider.postal_code = postal_code &&
-      provider.id = provider_id
+      provider.country == country &&
+      provider.postal_code == postal_code &&
+      provider.id == provider_id
     )
   end
 end
 
 def fetch_channels(
   provider, # Provider
+  start_time, # Time
+  time_span_hours, # 1..6
   cache_filename: nil
 ) # Array<Channel>
-  raise 'TODO: Implement fetch_channels'
+  lineup_json = fetch(
+    '/api/grid',
+    query: {
+      # Unused since we give `headendId`, but apparently necessary anyway!
+      lineupId: '-',
+
+      # Provider info
+      headendId: provider.id,
+      country: provider.country,
+      postalCode: provider.postal_code,
+
+      # Time info
+      timespan: time_span_hours,
+      time: start_time.to_i, # Needs to be Unix time, apparently
+    },
+
+    # TODO: Decide on cache parameters for a lineup.
+    # cache_filename: cache_filename,
+    # cache_ttl_seconds: 1 * TimeInterval::HOURS,
+  )
+
+  # We sort by channel number for a human-friendly display.
+  lineup_json
+    .channels
+    .sort_by { |c| [(Float(c.channelNo) rescue c.channelNo), c.callSign] }
+    .map do |c|
+      Channel.new(
+        call_sign: c.callSign,
+        id: c.channelId, # TODO: Should this be `id` instead? What's the difference?
+        number: c.channelNo,
+        image_url: c.thumbnail,
+      )
+    end
 end
 
 # Downloads and returns all the data for the given date, if possible.
@@ -823,36 +859,41 @@ def display_providers(
   )
 end
 
+# Returns a string for terminal output representing the channel list for the
+# given provider.
 def display_channels(
-  country, # :USA | :CAN
-  postal_code, # String
-  provider_id # String
+  provider # Provider
 ) # String
-  # TODO: Write provider table!
+  channels = fetch_channels(provider, Time.now, 1)
+
+  display_table(
+    [:'CALL_SIGN', :NUMBER, :ID],
+    channels.map { |c| [c.call_sign, c.number, c.id] },
+  )
 end
 
 def main!
   config = parse_config_from_args(ARGV).freeze
 
-  # Output program version information and exit if specified.
+  # Output program version information.
   if config.return_version_info?
     $stdout.puts(config.option_parser.ver())
     return
   end
 
-  # Output program help text and exit if specified.
+  # Output program help text.
   if config.return_help_text?
     $stdout.puts(config.option_parser.help())
     return
   end
 
-  # Output our XMLTV description and exit if specified.
+  # Output our XMLTV description.
   if config.return_description?
     $stdout.puts(XMLTV_DESCRIPTION)
     return
   end
 
-  # Output our XMLTV capabilities and exit if specified.
+  # Output our XMLTV capabilities.
   if config.return_capabilities?
     XMLTV_CAPABILITIES.each do |capability|
       $stdout.puts(capability)
@@ -860,39 +901,24 @@ def main!
     return
   end
 
-  # Download and print out the configured lineup information, then exit.
+  # Download and print out the configured lineup information.
   if config.return_providers?
-    country = Arg
-      .name('country')
-      .non_nil
-      .parse(config.country)
-
-    postal_code = Arg
-      .name('postal code')
-      .non_nil
-      .parse(config.postal_code)
+    country = Arg.name('country').non_nil.parse(config.country)
+    postal_code = Arg.name('postal code').non_nil.parse(config.postal_code)
 
     $stdout.puts(display_providers(country, postal_code))
     return
   end
 
+  # Download and print out a listing of the channels for the given provider
+  # information.
   if config.return_channels?
-    country = Arg
-      .name('country')
-      .non_nil
-      .parse(config.country)
+    country = Arg.name('country').non_nil.parse(config.country)
+    postal_code = Arg.name('postal code').non_nil.parse(config.postal_code)
+    provider_id = Arg.name('provider id').non_nil.parse(config.provider_id)
 
-    postal_code = Arg
-      .name('postal code')
-      .non_nil
-      .parse(config.postal_code)
-
-    provider_id = Arg
-      .name('provider id')
-      .non_nil
-      .parse(config.provider_id)
-
-    $stdout.puts(display_channels(country, postal_code, provider_id))
+    provider = fetch_provider(country, postal_code, provider_id)
+    $stdout.puts(display_channels(provider))
     return
   end
 end
