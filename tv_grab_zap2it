@@ -427,7 +427,7 @@ def parse_config_from_args(
     # XMLTV-specific configuration, mostly optional.
     cache_filename: nil, # Pathname | nil
     day_offset: 0, # Integer
-    days_to_download: 999, # Integer
+    days_to_download: Float::INFINITY, # Integer | Infinity
     output_filename: nil, # Pathname | nil
     quiet?: false,
 
@@ -906,7 +906,8 @@ def main!
     country = Arg.name('country').non_nil.parse(config.country)
     postal_code = Arg.name('postal code').non_nil.parse(config.postal_code)
 
-    $stdout.puts(display_providers(country, postal_code))
+    output = display_providers(country, postal_code)
+    $stdout.puts(output)
     return
   end
 
@@ -918,7 +919,8 @@ def main!
     provider_id = Arg.name('provider id').non_nil.parse(config.provider_id)
 
     provider = fetch_provider(country, postal_code, provider_id)
-    $stdout.puts(display_channels(provider))
+    output = display_channels(provider)
+    $stdout.puts(output)
     return
   end
 end
