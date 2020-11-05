@@ -372,53 +372,37 @@ def parse_config_from_args(
   args # An arguments array, typically `ARGV`.
 )
   config = OpenStruct.new({
-    option_parser: nil, # The `OptionsParser` instance that parsed this config.
+    # The `OptionParser` instance that parsed this config. This is useful so
+    # whoever gets the config can inspect e.g. all the parsed arguments that
+    # created it.
+    option_parser: nil, # OptionParser | nil
 
-    # If `true`, the program should output its description and exit.
-    return_description?: false,
+    # These `return_*?` options indicate that the program should run in the
+    # requisite "mode" and do something, then exit.
 
-    # If `true`, the program should output its XMLTV capabilities and exit.
-    return_capabilities?: false,
-
-    # Whether to suppress non-error output.
-    quiet?: false,
-
-    # The file to which the final XML should be written. If `nil`, the XML is
-    # written to standard output.
-    output_filename: nil, # Pathname | nil
-
-    # The number of days of data to obtain, default "all available".
-    days_to_download: 999,
-
-    # The number of days from today at which to start downloading data. The
-    # default 0 is "today", 1 is "tomorrow", etc.
-    day_offset: 0,
-
-    # A file in which to cache downloaded information for future use in lieu of
-    # hitting the network. If not provided, no cache is used.
-    cache_filename: nil,
-
-    # If specified, downloads and outputs available TV lineups and their ids for
-    # later use with the `provider_id` configuration option.
-    return_providers?: false,
-
-    # If specified, outputs the program's version info and exits.
+    # Generic hacks for better `--help` output
+    return_help_text?: false,
     return_version_info?: false,
 
-    # If specified, outputs the program's help text and exits.
-    return_help_text?: false,
+    # XMLTV-specific
+    return_capabilities?: false,
+    return_description?: false,
 
-    # The country for which to fetch data.
-    country: nil, # :USA | :CAN
-
-    # The postal code for which to fetch data.
-    postal_code: nil, # String
-
-    # The provider id from which to download guide data.
-    provider_id: nil, # String
-
-    # If specified, outputs the channel list for the configured provider.
+    # Program-specific
     return_channels?: false,
+    return_providers?: false,
+
+    # XMLTV-specific configuration, mostly optional.
+    cache_filename: nil, # Pathname | nil
+    day_offset: 0, # Integer
+    days_to_download: 999, # Integer
+    output_filename: nil, # Pathname | nil
+    quiet?: false,
+
+    # Program-specific configuration, mostly required.
+    country: nil, # :USA | :CAN
+    postal_code: nil, # String
+    provider_id: nil, # String
   })
 
   option_parser = OptionParser.new do |opts|
@@ -427,8 +411,11 @@ def parse_config_from_args(
     opts.release = RELEASE
 
     ############################################################################
-    # BASIC OPTIONS
+    # GENERIC OPTIONS
     ############################################################################
+
+    # Manually specifying these ensures they show up in `--help` output instead
+    # of simply being silently available without obvious provenance.
 
     opts.on(
       '-v',
@@ -550,7 +537,7 @@ def parse_config_from_args(
     end
 
     ############################################################################
-    # CONFIGURATION OPTIONS
+    # PROGRAM OPTIONS
     ############################################################################
 
     country_flag = '--country'
