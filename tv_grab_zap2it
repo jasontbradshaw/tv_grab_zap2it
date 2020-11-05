@@ -453,6 +453,20 @@ class ConfigOpenStruct < OpenStruct
   end
 end
 
+def to_deep_hash(
+  value # OpenStruct instance, possibly nested
+) # Hash<Symbol, JSON>
+  if value.is_a?(OpenStruct)
+    value.to_h do |key, value|
+      [key.to_sym, to_deep_hash(value)]
+    end
+  elsif value.is_a?(Array)
+    value.map { |v| to_deep_hash(v) }
+  else
+    value
+  end
+end
+
 # Parse the configuration from the command line options.
 def parse_config_from_args(
   args # An arguments array, typically `ARGV`.
@@ -725,12 +739,55 @@ def fetch(
     end
 
   # TODO: Read from the cache if a value exists there!
-  _cache_key = Digest::SHA2
+  cache_key = Digest::SHA2
     .new(512)
     .update(u.to_s) # The full request URL
     .update(URI.encode_www_form(data || {})) # POST data for the request, if any
     .hexdigest()
     .slice(0..32)
+
+  # The cache is really just a big JSON file that looks like:
+  #
+  # ```json
+  # {
+  #   "{{ cache_key }}": {
+  #     "created_at": 1234567890,
+  #     "ttl_seconds": 7654,
+  #     "value": { ... }
+  #   }
+  # }
+  # ```
+  #
+  # We open, read, and write it with abandon and rely on the OS to cache file
+  # system access and speed up repeated access for us.
+  cache =
+    if !cache_filename.nil? && cache_filename.exist?
+      cache_filename.open('r') do |f|
+        # We load all our JSON in this method using `OpenStruct` instances in
+        # place of hashes; this makes access much more convenient!
+        JSON.parse(f.read, object_class: OpenStruct)
+      end
+    else
+      OpenStruct.new({})
+    end
+
+  # If the response is stored in the cache, return it if it hasn't expired yet.
+  cache_entry = cache[cache_key]
+  now = Time.now
+  cached_json =
+    unless cache_entry.nil?
+      expires_at = Time.new(cache_entry.created_at + cache_entry.ttl_seconds)
+
+      if now > expires_at
+        # Update the cache so it'll be "pruned" when we write it back out later.
+        cache.delete_field(cache_key)
+      else
+        cache_entry.value
+      end
+    end
+
+  # Return any cached value directly without making the request.
+  return cached_json unless cached_json.nil?
 
   # If given data, make a POST request. Otherwise, make a GET request.
   res =
@@ -744,20 +801,32 @@ def fetch(
     raise IOError, "Got HTTP #{response.code} from #{uri}: #{response.message}"
   end
 
+  # Parse the body as JSON, the only response format we expect to receive.
   json =
     begin
-      raw_json = res.body
-      JSON.parse(
-        raw_json,
-
-        # Turn everything into a convenient object, JavaScript style.
-        object_class: OpenStruct,
-      )
+      JSON.parse(res.body, object_class: OpenStruct)
     rescue JSON::ParserError => err
       raise IOError, "Failed to parse HTTP response from #{uri}: #{err}"
     end
 
+  # Add a new cache entry for the successful response we just got, assuming that
+  # we're supposed to keep it around for long than no time at all!
+  unless cache_ttl_seconds.zero?
+    cache[cache_key] = OpenStruct.new({
+      created_at: now.to_i,
+      ttl_seconds: cache_ttl_seconds,
+      value: json,
+    })
+  end
+
   json
+ensure
+  # Write out the updated cache if a cache file was given.
+  unless cache_filename.nil?
+    cache_filename.open('w') do |f|
+      JSON.dump(to_deep_hash(cache), f)
+    end
+  end
 end
 
 # Downloads and returns lineup (i.e. provider) data for the given country and
@@ -817,10 +886,15 @@ end
 
 def fetch_channels(
   provider, # Provider
-  start_time, # Time
+  date, # Time, but will be truncated to its date component
   time_span_hours, # 1..6
   cache_filename: nil
 ) # Array<Channel>
+  # When fetching channels, we really only care about "right now" and don't
+  # expect the values to change much over time. However, we cache the response
+  # for a while anyway.
+  cache_ttl_seconds = 1 * TimeInterval::DAYS
+
   lineup_json = fetch(
     '/api/grid',
     query: {
@@ -832,14 +906,13 @@ def fetch_channels(
       country: provider.country,
       postalCode: provider.postal_code,
 
-      # Time info
+      # Time info, truncated to "today" for caching purposes.
       timespan: time_span_hours,
-      time: start_time.to_i, # Needs to be Unix time, apparently
+      time: date.to_i - date.to_i % cache_ttl_seconds, # Needs to be Unix time, apparently
     },
 
-    # TODO: Decide on cache parameters for a lineup.
-    # cache_filename: cache_filename,
-    # cache_ttl_seconds: 1 * TimeInterval::HOURS,
+    cache_filename: cache_filename,
+    cache_ttl_seconds: cache_ttl_seconds,
   )
 
   # We sort by channel number for a human-friendly display.
@@ -905,9 +978,14 @@ end
 # Returns a string for terminal output representing provider information.
 def display_providers(
   country, # :USA | :CAN
-  postal_code # String
+  postal_code, # String
+  cache_filename: nil # Pathname | nil
 ) # String
-  providers = fetch_providers(country, postal_code)
+  providers = fetch_providers(
+    country,
+    postal_code,
+    cache_filename: cache_filename
+  )
 
   display_table(
     [:NAME, :TYPE, :ID],
@@ -918,9 +996,15 @@ end
 # Returns a string for terminal output representing the channel list for the
 # given provider.
 def display_channels(
-  provider # Provider
+  provider, # Provider
+  cache_filename: nil # Pathname | nil
 ) # String
-  channels = fetch_channels(provider, Time.now, 1)
+  channels = fetch_channels(
+    provider,
+    Time.now,
+    1,
+    cache_filename: cache_filename,
+  )
 
   display_table(
     [:'CALL_SIGN', :NUMBER, :ID],
@@ -967,7 +1051,11 @@ def main!
     country = config.require(:country)
     postal_code = config.require(:postal_code)
 
-    output = display_providers(country, postal_code)
+    output = display_providers(
+      country,
+      postal_code,
+      cache_filename: config.cache_filename,
+    )
     $output.puts(output)
     return
   end
@@ -980,7 +1068,10 @@ def main!
     provider_id = config.require(:provider_id)
 
     provider = fetch_provider(country, postal_code, provider_id)
-    output = display_channels(provider)
+    output = display_channels(
+      provider,
+      cache_filename: config.cache_filename,
+    )
     $output.puts(output)
     return
   end
