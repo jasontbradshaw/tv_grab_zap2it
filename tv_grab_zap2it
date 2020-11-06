@@ -6,6 +6,7 @@ require 'net/http'
 require 'optparse'
 require 'ostruct'
 require 'pathname'
+require 'set'
 require 'uri'
 
 PROGRAM_NAME = 'tv_grab_zap2it'
@@ -25,10 +26,7 @@ RELEASE =
   end
 
 XMLTV_DESCRIPTION = 'USA/Canada (zap2it.com)'
-XMLTV_CAPABILITIES = [
-  'baseline',
-  'cache',
-].freeze
+XMLTV_CAPABILITIES = %w[baseline cache].freeze
 
 # Useful time constants for obtaining a number of seconds via multiplication.
 class TimeInterval
@@ -653,7 +651,7 @@ def parse_config_from_args(
     quiet?: false,
 
     # Program-specific configuration, mostly required.
-    channels: [], # Array<String>
+    channels: Set.new, # Set<String>
     country: nil, # :USA | :CAN
     postal_code: nil, # String
     provider_id: nil, # String
@@ -870,6 +868,7 @@ def parse_config_from_args(
         .split(/,+/)
         .map(&:strip) # Handle interior whitespace
         .compact # Remove empty strings
+        .to_set
     end
   end
 
@@ -911,7 +910,6 @@ def fetch(
       raise ArgumentError, "Invalid URI from path #{full_path.inspect}: #{err}"
     end
 
-  # TODO: Read from the cache if a value exists there!
   cache_key = Digest::SHA2
     .new(512)
     .update(u.to_s) # The full request URL
