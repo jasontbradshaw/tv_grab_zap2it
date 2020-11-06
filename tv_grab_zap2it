@@ -502,7 +502,12 @@ class OpenStructCache
     return if @path.nil?
 
     # Serialize all values in the cache prior to dumping them.
+    now = Time.now
     serialized_cache = @cache.inject({}) do |all, (key, entry)|
+      # Don't serialize expired entries, effectively pruning them from the
+      # persisted cache.
+      return all if entry_expired?(entry, now: now)
+
       # This does a shallow clone so we can then modify any remaining items
       # ourselves.
       new_entry = entry.dup
@@ -532,11 +537,10 @@ class OpenStructCache
     cache_entry =
       if @cache.include?(cache_key)
         entry = @cache[cache_key]
-        expires_at = Time.new(entry[:created_at] + entry[:ttl_seconds])
 
         # If the entry has expired, delete it from the cache entirely; we'll
         # create a new entry later if we can.
-        if now > expires_at
+        if entry_expired?(entry, now: now)
           @cache.delete(cache_key)
           nil
         else
@@ -566,6 +570,10 @@ class OpenStructCache
   end
 
   private
+
+  def entry_expired?(entry, now: Time.now)
+    now > Time.new(entry[:created_at] + entry[:ttl_seconds])
+  end
 
   # Converts a nested JSON-ish `OpenStruct` instance into a normal hash, where
   # all `OpenStruct` instances and hashes are replaced with symbolized hashes.
