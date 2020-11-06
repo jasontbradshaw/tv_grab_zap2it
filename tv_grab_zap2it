@@ -500,6 +500,7 @@ def parse_config_from_args(
     quiet?: false,
 
     # Program-specific configuration, mostly required.
+    channels: [], # Array<String>
     country: nil, # :USA | :CAN
     postal_code: nil, # String
     provider_id: nil, # String
@@ -697,6 +698,23 @@ def parse_config_from_args(
       "Output the channels for the given #{country_flag}, #{postal_code_flag}, and #{provider_id_flag} values.",
     ) do
       config[:return_channels?] = true
+    end
+
+    channels_flag = '--channels CHANNELS'
+    opts.on(
+      channels_flag,
+      "A comma-delimited list of channel call signs for which to download data. If non are provided, all available channels will be downloaded.",
+    ) do |s|
+      raw_channels = Arg
+        .name(channels_flag)
+        .strip
+        .non_empty
+        .parse(s)
+
+      config.channels = raw_channels
+        .split(/,+/)
+        .map(&:strip) # Handle interior whitespace
+        .compact # Remove empty strings
     end
   end
 
