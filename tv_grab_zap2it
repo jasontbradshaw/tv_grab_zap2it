@@ -360,6 +360,14 @@ class Channel
       .parse(image_url)
   end
 
+  # An RFC-2838 id for this channel.
+  def xml_id
+    # See https://tools.ietf.org/html/rfc2838 for more information about this id
+    # format. Since we can't really determine the actual "owner" of the network,
+    # we attribute it to zap2it via their internal id instead.
+    "tv:#{id}.zap2it.com"
+  end
+
   def to_xml
     raise 'TODO: Implement Channel#to_xml'
   end
@@ -374,7 +382,7 @@ class EpisodeNumber
 
   def initialize(
     value: nil, # String
-    system: nil # :xmltv_ns | :onscreen (TODO: Are there other possibilities?)
+    system: nil # :xmltv_ns | :onscreen
   )
     raise 'TODO: Implement EpisodeNumber'
   end
@@ -392,6 +400,7 @@ class Program
     :stop_time,
     :episode_numbers,
     :title,
+    :secondary_title,
     :description,
     :image_url,
     :previously_shown_time,
@@ -400,15 +409,16 @@ class Program
 
   def initialize(
     channel: nil, # Channel
-    start_time: nil, # Time
-    stop_time: nil, # Time
+    start_time: nil, # Time, inclusive
+    stop_time: nil, # Time, exclusive
     episode_numbers: nil, # Array<EpisodeNumber>
     title: nil, # String
+    secondary_title: nil, # String | nil
     description: nil, # String
     image_url: nil, # URI
     previously_shown_time: nil, # Time | nil
     rating: nil, # Rating | nil
-    categories: nil # Array<String>
+    categories: nil # Set<String>
   )
     raise 'TODO: Implement Program'
   end
