@@ -453,17 +453,162 @@ class ConfigOpenStruct < OpenStruct
   end
 end
 
-def to_deep_hash(
-  value # OpenStruct instance, possibly nested
-) # Hash<Symbol, JSON>
-  if value.is_a?(OpenStruct)
-    value.to_h do |key, value|
-      [key.to_sym, to_deep_hash(value)]
+# A simple cache, either in-memory or backed by a file. All cached values are
+# converted to nested `OpenStruct` instances.
+class OpenStructCache
+  attr_reader \
+    :path
+
+  # Reads existing values from the given path, if any, otherwise uses a
+  # memory-only backing store.
+  def initialize(
+    path = nil # Pathname | nil
+  )
+    @path = path
+    @cache = {}
+
+    # Initialize the cache from the backing store, if given.
+    if !path.nil? && path.exist?
+      @cache = path.open('r') do |f|
+        # We load all our JSON in this method using `OpenStruct` instances in
+        # place of hashes; this makes access much more convenient!
+        #
+        # We use `JSON#parse` instead of `JSON#load` so we don't have to trust
+        # the input file we were given, which the documentation suggests we must
+        # do if using `JSON#load`.
+        JSON.parse(f.read, symbolize_names: true)
+      end
+
+      unless @cache.is_a?(Hash)
+        raise IOError, "#{path} contains invalid cache file contents"
+      end
+
+      # Pre-parse all cached values so we can return them directly rather than
+      # re-parsing them on every access.
+      @cache.each do |(_, entry)|
+        entry[:value] = to_deep_openstruct(entry[:value])
+      end
     end
-  elsif value.is_a?(Array)
-    value.map { |v| to_deep_hash(v) }
-  else
-    value
+  end
+
+  def size
+    @cache.size
+  end
+
+  # Write the cache to the originally-configured path, if any. If no path was
+  # originally configured, does nothing.
+  def persist! # self
+    # If we were given no path, we can't persist the cache.
+    return if @path.nil?
+
+    # Serialize all values in the cache prior to dumping them.
+    serialized_cache = @cache.inject({}) do |all, (key, entry)|
+      # This does a shallow clone so we can then modify any remaining items
+      # ourselves.
+      new_entry = entry.dup
+      new_entry[:value] = to_deep_hash(new_entry[:value])
+
+      all[key] = new_entry
+      all
+    end
+
+    @path.open('w') do |f|
+      JSON.dump(serialized_cache, f)
+    end
+
+    self
+  end
+
+  # Load a JSON value from the cache. If no value is found, the given block is
+  # run and the resulting value is stored in the cache before being returned.
+  def lookup(
+    cache_key, # String | Symbol
+    ttl_seconds: 0, # Integer
+    &block # () => JSON
+  ) # cached value converted to a nested `OpenStruct<JSON>`
+    cache_key = cache_key.to_sym
+
+    now = Time.now
+    cache_entry =
+      if @cache.include?(cache_key)
+        entry = @cache[cache_key]
+        expires_at = Time.new(entry[:created_at] + entry[:ttl_seconds])
+
+        # If the entry has expired, delete it from the cache entirely; we'll
+        # create a new entry later if we can.
+        if now > expires_at
+          @cache.delete(cache_key)
+          nil
+        else
+          entry
+        end
+      else
+        nil
+      end
+
+    # If no entry was cached or the cached entry has expired, create a new entry
+    # and add it to the cache.
+    if cache_entry.nil?
+      value = to_deep_openstruct(yield)
+      cache_entry = {
+        created_at: now.to_i,
+        ttl_seconds: ttl_seconds,
+        value: value
+      }
+
+      # Only add an entry to the cache if it makes sense to do so!
+      if ttl_seconds > 0
+        @cache[cache_key] = cache_entry
+      end
+    end
+
+    cache_entry[:value]
+  end
+
+  private
+
+  # Converts a nested JSON-ish `OpenStruct` instance into a normal hash, where
+  # all `OpenStruct` instances and hashes are replaced with symbolized hashes.
+  def to_deep_hash(
+    value # OpenStruct<JSON>, possibly nested
+  ) # Hash<Symbol, JSON>
+    if value.is_a?(OpenStruct)
+      value.to_h do |key, value|
+        [key.to_sym, to_deep_hash(value)]
+      end
+    elsif value.is_a?(Hash)
+      value.map do |key, value|
+        [key.to_sym, to_deep_hash(value)]
+      end.to_h
+    elsif value.is_a?(Array)
+      value.map { |v| to_deep_hash(v) }
+    else
+      value
+    end
+  end
+
+  # Converts a JSON-ish value into a nested `OpenStruct` instance, where all
+  # hashes and `OpenStruct` instances are replaced with `OpenStruct`s.
+  def to_deep_openstruct(
+    value # JSON-ish
+  ) # OpenStruct<JSON>, possibly nested
+    if value.is_a?(OpenStruct)
+      o = OpenStruct.new
+      value.each_pair do |k, v|
+        o[k] = to_deep_openstruct(v)
+      end
+      o
+    elsif value.is_a?(Hash)
+      o = OpenStruct.new
+      value.each do |k, v|
+        o[k] = to_deep_openstruct(v)
+      end
+      o
+    elsif value.is_a?(Array)
+      value.map { |v| to_deep_openstruct(v) }
+    else
+      value
+    end
   end
 end
 
@@ -493,7 +638,7 @@ def parse_config_from_args(
     return_providers?: false,
 
     # XMLTV-specific configuration, mostly optional.
-    cache_filename: nil, # Pathname | nil
+    cache: OpenStructCache.new, # Cache, in-memory by default
     day_offset: 0, # Integer
     days_to_download: Float::INFINITY, # Integer | Infinity
     output_file: $stdout, # File-like
@@ -633,10 +778,12 @@ def parse_config_from_args(
       "#{cache_flag} PATH",
       'If given, a file in which to cache network requests across invocations.'
     ) do |p|
-      config.cache_filename = Arg
+      cache_filename = Arg
         .name(cache_flag)
         .path_name
         .parse(p)
+
+      config.cache = OpenStructCache.new(cache_filename)
     end
 
     ############################################################################
@@ -735,9 +882,9 @@ def fetch(
   *path, # Array<any>
   query: nil, # Hash<Symbol, any> | nil
   data: nil, # Hash<Symbol | String, JSON> | nil
-  cache_filename: nil, # Pathname | nil
-  cache_ttl_seconds: nil # Integer | nil
-) # Hash<Symbol, OpenStruct> | Array<OpenStruct>
+  cache: OpenStructCache.new, # OpenStructCache
+  ttl_seconds: 0 # Integer
+) # OpenStruct<JSON> | Array<OpenStruct>, both possibly nested
   full_path = File.join(
     'https://tvlistings.zap2it.com',
     *path.map(&:to_s),
@@ -764,85 +911,24 @@ def fetch(
     .hexdigest()
     .slice(0..32)
 
-  # The cache is really just a big JSON file that looks like:
-  #
-  # ```json
-  # {
-  #   "{{ cache_key }}": {
-  #     "created_at": 1234567890,
-  #     "ttl_seconds": 7654,
-  #     "value": { ... }
-  #   }
-  # }
-  # ```
-  #
-  # We open, read, and write it with abandon and rely on the OS to cache file
-  # system access and speed up repeated access for us.
-  cache =
-    if !cache_filename.nil? && cache_filename.exist?
-      cache_filename.open('r') do |f|
-        # We load all our JSON in this method using `OpenStruct` instances in
-        # place of hashes; this makes access much more convenient!
-        JSON.parse(f.read, object_class: OpenStruct)
-      end
-    else
-      OpenStruct.new({})
-    end
-
-  # If the response is stored in the cache, return it if it hasn't expired yet.
-  cache_entry = cache[cache_key]
-  now = Time.now
-  cached_json =
-    unless cache_entry.nil?
-      expires_at = Time.new(cache_entry.created_at + cache_entry.ttl_seconds)
-
-      if now > expires_at
-        # Update the cache so it'll be "pruned" when we write it back out later.
-        cache.delete_field(cache_key)
+  cache.lookup(cache_key, ttl_seconds: ttl_seconds) do
+    # If given data, make a POST request. Otherwise, make a GET request.
+    res =
+      if data.nil?
+        Net::HTTP.get_response(uri)
       else
-        cache_entry.value
+        Net::HTTP.post_form(uri, **data)
       end
+
+    unless res.is_a?(Net::HTTPSuccess)
+      raise IOError, "Got HTTP #{response.code} from #{uri}: #{response.message}"
     end
 
-  # Return any cached value directly without making the request.
-  return cached_json unless cached_json.nil?
-
-  # If given data, make a POST request. Otherwise, make a GET request.
-  res =
-    if data.nil?
-      Net::HTTP.get_response(uri)
-    else
-      Net::HTTP.post_form(uri, **data)
-    end
-
-  unless res.is_a?(Net::HTTPSuccess)
-    raise IOError, "Got HTTP #{response.code} from #{uri}: #{response.message}"
-  end
-
-  # Parse the body as JSON, the only response format we expect to receive.
-  json =
+    # Parse the body as JSON, the only response format we expect to receive.
     begin
-      JSON.parse(res.body, object_class: OpenStruct)
+      JSON.parse(res.body)
     rescue JSON::ParserError => err
       raise IOError, "Failed to parse HTTP response from #{uri}: #{err}"
-    end
-
-  # Add a new cache entry for the successful response we just got, assuming that
-  # we're supposed to keep it around for long than no time at all!
-  unless cache_ttl_seconds.zero?
-    cache[cache_key] = OpenStruct.new({
-      created_at: now.to_i,
-      ttl_seconds: cache_ttl_seconds,
-      value: json,
-    })
-  end
-
-  json
-ensure
-  # Write out the updated cache if a cache file was given.
-  unless cache_filename.nil?
-    cache_filename.open('w') do |f|
-      JSON.dump(to_deep_hash(cache), f)
     end
   end
 end
@@ -852,7 +938,7 @@ end
 def fetch_providers(
   country, # :USA | :CAN
   postal_code, # String, e.g. `12345` or `A1A 1A1`
-  cache_filename: nil # Pathname | nil
+  cache: OpenStructCache.new # OpenStructCache
 ) # Array<Provider>
   provider_json = fetch(
     '/gapzap_webapi/api/Providers/getPostalCodeProviders',
@@ -861,8 +947,8 @@ def fetch_providers(
     '/gapzap/en',
 
     # This response is expected to change very infrequently, if ever.
-    cache_filename: cache_filename,
-    cache_ttl_seconds: 1 * TimeInterval::WEEKS,
+    cache: cache,
+    ttl_seconds: 1 * TimeInterval::WEEKS,
   )
 
   provider_json
@@ -885,12 +971,12 @@ def fetch_provider(
   country, # :USA | :CAN
   postal_code, # String
   provider_id, # String
-  cache_filename: nil
+  cache: OpenStructCache.new # OpenStructCache
 ) # Provider | nil
   providers = fetch_providers(
     country,
     postal_code,
-    cache_filename: cache_filename,
+    cache: cache,
   )
 
   providers.find do |provider|
@@ -906,12 +992,12 @@ def fetch_channels(
   provider, # Provider
   date, # Time, but will be truncated to its date component
   time_span_hours, # 1..6
-  cache_filename: nil
+  cache: OpenStructCache.new # OpenStructCache
 ) # Array<Channel>
   # When fetching channels, we really only care about "right now" and don't
   # expect the values to change much over time. However, we cache the response
   # for a while anyway.
-  cache_ttl_seconds = 1 * TimeInterval::DAYS
+  ttl_seconds = 1 * TimeInterval::DAYS
 
   lineup_json = fetch(
     '/api/grid',
@@ -926,11 +1012,11 @@ def fetch_channels(
 
       # Time info, truncated to "today" for caching purposes.
       timespan: time_span_hours,
-      time: date.to_i - date.to_i % cache_ttl_seconds, # Needs to be Unix time, apparently
+      time: date.to_i - date.to_i % ttl_seconds, # Needs to be Unix time, apparently
     },
 
-    cache_filename: cache_filename,
-    cache_ttl_seconds: cache_ttl_seconds,
+    cache: cache,
+    ttl_seconds: ttl_seconds,
   )
 
   # We sort by channel number for a human-friendly display.
@@ -951,7 +1037,7 @@ end
 def fetch_lineup(
   provider, # Provider
   date, # Date
-  cache_filename: nil # Pathname | nil
+  cache: OpenStructCache.new # OpenStructCache
 )
   raise 'TODO: Implement fetch_lineup'
 end
@@ -997,12 +1083,12 @@ end
 def display_providers(
   country, # :USA | :CAN
   postal_code, # String
-  cache_filename: nil # Pathname | nil
+  cache: OpenStructCache.new # OpenStructCache
 ) # String
   providers = fetch_providers(
     country,
     postal_code,
-    cache_filename: cache_filename
+    cache: cache
   )
 
   display_table(
@@ -1015,13 +1101,13 @@ end
 # given provider.
 def display_channels(
   provider, # Provider
-  cache_filename: nil # Pathname | nil
+  cache: OpenStructCache.new # OpenStructCache
 ) # String
   channels = fetch_channels(
     provider,
     Time.now,
     1,
-    cache_filename: cache_filename,
+    cache: cache,
   )
 
   display_table(
@@ -1032,7 +1118,9 @@ end
 
 def main!
   config = parse_config_from_args(ARGV).freeze
+
   $output = config.output_file
+  cache = config.cache
 
   # Output program help text.
   #
@@ -1072,7 +1160,7 @@ def main!
     output = display_providers(
       country,
       postal_code,
-      cache_filename: config.cache_filename,
+      cache: cache,
     )
     $output.puts(output)
     return
@@ -1085,14 +1173,27 @@ def main!
     postal_code = config.require(:postal_code)
     provider_id = config.require(:provider_id)
 
-    provider = fetch_provider(country, postal_code, provider_id)
+    provider = fetch_provider(
+      country,
+      postal_code,
+      provider_id,
+      cache: cache,
+    )
     output = display_channels(
       provider,
-      cache_filename: config.cache_filename,
+      cache: cache,
     )
     $output.puts(output)
     return
   end
+ensure
+  # Always attempt to persist the cache once we're done.
+  #
+  # We don't have to worry about some partially-valid state since the cache
+  # doesn't store entries that generate an exception during population, meaning
+  # that whatever _does_ end up in the cache was at least valid enough to have
+  # been generated by the code.
+  cache.persist!
 end
 
 if __FILE__ == $0
