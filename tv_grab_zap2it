@@ -1083,7 +1083,7 @@ end
 def fetch_channels(
   provider, # Provider
   date = Time.now, # Time, but will be truncated to its date component
-  time_span_hours = 1, # 1 | 2 | 3 | 4 | 5 | 6
+  time_span_hours = 6, # 1 | 2 | 3 | 4 | 5 | 6
   cache: OpenStructCache.new # OpenStructCache
 ) # Array<Channel>
   # When fetching channels, we really only care about "right now" and don't
@@ -1132,7 +1132,7 @@ def fetch_channel(
   provider, # Provider
   token, # String, one of a channel call sign, number, or id
   date = Time.now, # Time, but will be truncated to its date component
-  time_span_hours = 1, # 1 | 2 | 3 | 4 | 5 | 6
+  time_span_hours = 6, # 1 | 2 | 3 | 4 | 5 | 6
   cache: OpenStructCache.new # OpenStructCache
 ) # Channel | nil
   channels = fetch_channels(
