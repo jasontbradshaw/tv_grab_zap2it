@@ -33,6 +33,8 @@ end
 XMLTV_DESCRIPTION = 'USA/Canada (zap2it.com)'
 XMLTV_CAPABILITIES = %w[baseline cache].freeze
 
+ZAP2IT_API_HOST = 'https://tvlistings.zap2it.com'
+
 PROGRAM_NAME = 'tv_grab_zap2it'
 VERSION = Gem::Version.new('0.0.1').freeze
 RELEASE =
@@ -955,9 +957,9 @@ def parse_config_from_args(
   config
 end
 
-# Makes a GET request to the secure `tvlistings.zap2it.com` domain and returns
-# the JSON response converted to a deep `OpenStruct`. If the request fails or
-# its response body can't be parsed, raises an `IOError`.
+# Makes a GET request to some host/path combination and returns the JSON
+# response converted to a deep `OpenStruct`. If the request fails or its
+# response body can't be parsed, raises an `IOError`.
 def fetch(
   *path, # Array<any>
   query: nil, # Hash<Symbol, any> | nil
@@ -965,10 +967,7 @@ def fetch(
   cache: OpenStructCache.new, # OpenStructCache
   ttl_seconds: 0 # Integer
 ) # OpenStruct<JSON> | Array<OpenStruct>, both possibly nested
-  full_path = File.join(
-    'https://tvlistings.zap2it.com',
-    *path.map(&:to_s),
-  )
+  full_path = File.join(*path.map(&:to_s))
 
   uri =
     begin
@@ -1031,6 +1030,7 @@ def fetch_providers(
   cache: OpenStructCache.new # OpenStructCache
 ) # Array<Provider>
   provider_json = fetch(
+    ZAP2IT_API_HOST,
     '/gapzap_webapi/api/Providers/getPostalCodeProviders',
     country,
     postal_code,
@@ -1092,6 +1092,7 @@ def fetch_channels(
   ttl_seconds = 1 * TimeInterval::DAYS
 
   lineup_json = fetch(
+    ZAP2IT_API_HOST,
     '/api/grid',
     query: {
       # Unused since we give `headendId`, but apparently necessary anyway!
