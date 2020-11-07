@@ -929,7 +929,7 @@ def parse_config_from_args(
     channels_flag = '--channels CHANNELS'
     opts.on(
       channels_flag,
-      "A comma-delimited list of channel call signs for which to download data. If non are provided, all available channels will be downloaded.",
+      "A comma-delimited list of channel call signs, numbers, and/or ids for which to download data. If non are provided, all available channels will be downloaded.",
     ) do |s|
       raw_channels = Arg
         .name(channels_flag)
@@ -1078,6 +1078,8 @@ def fetch_provider(
   end
 end
 
+# Downloads and returns the channels available for the given provider at the
+# given time/time span.
 def fetch_channels(
   provider, # Provider
   date = Time.now, # Time, but will be truncated to its date component
@@ -1122,6 +1124,31 @@ def fetch_channels(
         image_url: c.thumbnail,
       )
     end
+end
+
+# Fetch overall channel info and return the channel that corresponds to the
+# given token. If no channel is found, returns `nil`.
+def fetch_channel(
+  provider, # Provider
+  token, # String, one of a channel call sign, number, or id
+  date = Time.now, # Time, but will be truncated to its date component
+  time_span_hours = 1, # 1 | 2 | 3 | 4 | 5 | 6
+  cache: OpenStructCache.new # OpenStructCache
+) # Channel | nil
+  channels = fetch_channels(
+    provider,
+    date,
+    time_span_hours,
+    cache: cache
+  )
+
+  channels.find do |channel|
+    (
+      channel.call_sign == token ||
+      channel.id == token ||
+      channel.number == token
+    )
+  end
 end
 
 # Downloads and returns all the data for the given date, if possible.
