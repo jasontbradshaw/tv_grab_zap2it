@@ -9,8 +9,32 @@ require 'pathname'
 require 'set'
 require 'uri'
 
+# Returns the SHA-512 digest of the given stringified values.
+def digest(
+  *values, # Array<any>
+  format: :hex, # :hex | :base64 | :bubblebabble
+  length: 999_999_999 # The maximum length at which to truncate the resulting digest
+)
+  d = Digest::SHA2.new(512)
+  values.each { |v| d.update(v.to_s) }
+
+  hash =
+    case format
+      when :hex then d.hexdigest()
+      when :base64 then d.base64digest()
+      when :bubblebabble then d.bubblebabble()
+      else
+        raise ArgumentError, "Invalid format: #{format.inspect}"
+    end
+
+  hash[0...length]
+end
+
+XMLTV_DESCRIPTION = 'USA/Canada (zap2it.com)'
+XMLTV_CAPABILITIES = %w[baseline cache].freeze
+
 PROGRAM_NAME = 'tv_grab_zap2it'
-VERSION = '0.0.1'
+VERSION = Gem::Version.new('0.0.1').freeze
 RELEASE =
   begin
     # Compute a truncated SHA-512 digest of the current file and use this as our
@@ -18,15 +42,11 @@ RELEASE =
     # guaranteed to provide a unique and stable value for each "build".
     file_data = File.read(Pathname.new(__FILE__).realpath)
 
-    hash = Digest::SHA2
-      .new(512)
-      .hexdigest(file_data)
-
-    hash[0..8]
+    digest(file_data, format: :hex, length: 8)
   end
 
-XMLTV_DESCRIPTION = 'USA/Canada (zap2it.com)'
-XMLTV_CAPABILITIES = %w[baseline cache].freeze
+# Compile the version information into a single string for easy use elsewhere.
+VERSION_INFO = "#{PROGRAM_NAME} v#{VERSION} (#{RELEASE})"
 
 # Useful time constants for obtaining a number of seconds via multiplication.
 class TimeInterval
@@ -178,7 +198,7 @@ class Arg
   end
 
   def int
-    self.parser do |value|
+    self.is_a(String).parser do |value|
       begin
         Integer(value, 10)
       rescue ArgumentError => err
@@ -186,6 +206,26 @@ class Arg
       end
 
       value
+    end
+  end
+
+  def min(
+    n # Integer
+  )
+    self.parser do |value|
+      if value < min
+        raise ArgumentError, "{{ name }} of #{value.inspect} must not be less than #{n}"
+      end
+    end
+  end
+
+  def max(
+    n # Integer
+  )
+    self.parser do |value|
+      if value > max
+        raise ArgumentError, "{{ name }} of #{value.inspect} must not be greater than #{n}"
+      end
     end
   end
 
@@ -282,18 +322,21 @@ class Provider
       .is_a(String)
       .non_empty
       .parse(id)
+
     @name = Arg
       .name('name')
       .non_nil
       .is_a(String)
       .non_empty
       .parse(name)
+
     @postal_code = Arg
       .name('postal_code')
       .non_nil
       .non_empty
       .is_a(String)
       .parse(postal_code)
+
     @type = Arg
       .name('type')
       .non_nil
@@ -302,6 +345,7 @@ class Provider
       .downcase
       .symbolize
       .parse(type)
+
     @country = Arg
       .name('country')
       .one_of(:USA, :CAN)
@@ -312,17 +356,24 @@ end
 # A channel in a lineup.
 class Channel
   attr_reader \
+    :provider,
     :call_sign,
     :id,
     :number,
     :image_url
 
   def initialize(
+    provider: nil, # Provider
     call_sign: nil, # String
     id: nil, # String
     number: nil, # String
     image_url: nil # String
   )
+    @provider = Arg
+      .name('provider')
+      .is_a(Provider)
+      .parse(provider)
+
     @call_sign = Arg
       .name('call_sign')
       .non_nil
@@ -330,6 +381,7 @@ class Channel
       .non_empty
       .strip
       .parse(call_sign)
+
     @id = Arg
       .name('id')
       .non_nil
@@ -337,6 +389,7 @@ class Channel
       .non_empty
       .strip
       .parse(id)
+
     @number = Arg
       .name('number')
       .non_nil
@@ -344,6 +397,7 @@ class Channel
       .non_empty
       .strip
       .parse(number)
+
     @image_url = Arg
       .name('image_url')
       .non_nil
@@ -628,6 +682,14 @@ class OpenStructCache
   end
 end
 
+# Returns a new `Time` truncated to the given unit.
+def truncate_time(
+  time, # Time
+  unit # Integer seconds, e.g. 3600 for an hour or 86400 for a day
+)
+  time - (time.to_i % unit)
+end
+
 # Parse the configuration from the command line options.
 def parse_config_from_args(
   args # An arguments array, typically `ARGV`.
@@ -656,7 +718,7 @@ def parse_config_from_args(
     # XMLTV-specific configuration, mostly optional.
     cache: OpenStructCache.new, # Cache, in-memory by default
     day_offset: 0, # Integer
-    days_to_download: Float::INFINITY, # Integer | Infinity
+    days_to_fetch: 999_999_999, # Integer
     output_file: $stdout, # File-like
     quiet?: false,
 
@@ -748,9 +810,10 @@ def parse_config_from_args(
       "#{days_flag} DAYS",
       'The number of days of data to obtain, default "as many as are available"'
     ) do |d|
-      config.days_to_download = Arg
+      config.days_to_fetch = Arg
         .name(days_flag)
         .int
+        .min(1)
         .parse(d)
     end
 
@@ -920,24 +983,35 @@ def fetch(
       raise ArgumentError, "Invalid URI from path #{full_path.inspect}: #{err}"
     end
 
-  cache_key = Digest::SHA2
-    .new(512)
-    .update(u.to_s) # The full request URL
-    .update(URI.encode_www_form(data || {})) # POST data for the request, if any
-    .hexdigest()
-    .slice(0..32)
+  cache_key = digest(
+    u, # The full request URL
+    URI.encode_www_form(data || {}), # POST data for the request, if any
+    format: :base64,
+    length: 32
+  )
 
   cache.lookup(cache_key, ttl_seconds: ttl_seconds) do
-    # If given data, make a POST request. Otherwise, make a GET request.
+    # Don't allow things to take too long since we might be making a lot of
+    # requests.
+    timeout = 15 * TimeInterval::SECONDS
     res =
-      if data.nil?
-        Net::HTTP.get_response(uri)
-      else
-        Net::HTTP.post_form(uri, **data)
+      Net::HTTP.start(
+        uri.host,
+        uri.port,
+        use_ssl: u.scheme == 'https',
+        open_timeout: timeout,
+        read_timeout: timeout,
+        write_timeout: timeout,
+        ssl_timeout: timeout,
+      ) do |http|
+        method = data.nil? ? :GET : :POST
+        http.send_request(method, uri.request_uri, data, {
+          'User-Agent' => VERSION_INFO
+        })
       end
 
     unless res.is_a?(Net::HTTPSuccess)
-      raise IOError, "Got HTTP #{response.code} from #{uri}: #{response.message}"
+      raise IOError, "Got HTTP #{res.code} from #{uri}: #{res.message}"
     end
 
     # Parse the body as JSON, the only response format we expect to receive.
@@ -1006,8 +1080,8 @@ end
 
 def fetch_channels(
   provider, # Provider
-  date, # Time, but will be truncated to its date component
-  time_span_hours, # 1..6
+  date = Time.now, # Time, but will be truncated to its date component
+  time_span_hours = 1, # 1 | 2 | 3 | 4 | 5 | 6
   cache: OpenStructCache.new # OpenStructCache
 ) # Array<Channel>
   # When fetching channels, we really only care about "right now" and don't
@@ -1028,7 +1102,7 @@ def fetch_channels(
 
       # Time info, truncated to "today" for caching purposes.
       timespan: time_span_hours,
-      time: date.to_i - date.to_i % ttl_seconds, # Needs to be Unix time, apparently
+      time: truncate_time(date, ttl_seconds).to_i, # Needs to be Unix time, apparently
     },
 
     cache: cache,
@@ -1041,6 +1115,7 @@ def fetch_channels(
     .sort_by { |c| [(Float(c.channelNo) rescue c.channelNo), c.callSign] }
     .map do |c|
       Channel.new(
+        provider: provider,
         call_sign: c.callSign,
         id: c.channelId, # TODO: Should this be `id` instead? What's the difference?
         number: c.channelNo,
@@ -1051,8 +1126,9 @@ end
 
 # Downloads and returns all the data for the given date, if possible.
 def fetch_lineup(
-  provider, # Provider
-  date, # Date
+  channel, # Channel
+  start_date = Time.now, # Time, but will be truncated to its data component
+  days_to_fetch: 999_999_999, # The maximum number of days of data to fetch
   cache: OpenStructCache.new # OpenStructCache
 )
   raise 'TODO: Implement fetch_lineup'
@@ -1121,8 +1197,6 @@ def display_channels(
 ) # String
   channels = fetch_channels(
     provider,
-    Time.now,
-    1,
     cache: cache,
   )
 
@@ -1150,7 +1224,7 @@ def main!
 
   # Output program version information.
   if config.return_version_info?
-    $output.puts(config.option_parser.ver())
+    $output.puts(VERSION_INFO)
     return
   end
 
@@ -1195,6 +1269,11 @@ def main!
       provider_id,
       cache: cache,
     )
+
+    if provider.nil?
+      raise ArgumentError, "No provider found for country #{country}, postal code #{postal_code}, and id #{provider_id}"
+    end
+
     output = display_channels(
       provider,
       cache: cache,
