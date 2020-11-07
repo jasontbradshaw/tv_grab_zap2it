@@ -1,0 +1,365 @@
+$ curl \
+  --verbose \
+  'https://tvlistings.zap2it.com/gapzap_webapi/api/program/PostEpisodeGuide' \
+  -d 'programSeriesID=SH00446173' \
+  -d 'season=9' \
+  -d 'pageSize=999' \
+  -d 'pageNo=1' \
+  -d 'aid=gapzap'
+*   Trying 44.240.12.203:443...
+* Connected to tvlistings.zap2it.com (44.240.12.203) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+* TLSv1.2 (IN), TLS handshake, Certificate (11):
+* TLSv1.2 (IN), TLS handshake, Server key exchange (12):
+* TLSv1.2 (IN), TLS handshake, Server finished (14):
+* TLSv1.2 (OUT), TLS handshake, Client key exchange (16):
+* TLSv1.2 (OUT), TLS change cipher, Change cipher spec (1):
+* TLSv1.2 (OUT), TLS handshake, Finished (20):
+* TLSv1.2 (IN), TLS handshake, Finished (20):
+* SSL connection using TLSv1.2 / ECDHE-RSA-AES128-GCM-SHA256
+* ALPN, server accepted to use h2
+* Server certificate:
+*  subject: OU=Domain Control Validated; CN=*.zap2it.com
+*  start date: Sep 21 15:00:51 2020 GMT
+*  expire date: Sep 21 15:00:51 2021 GMT
+*  subjectAltName: host "tvlistings.zap2it.com" matched cert's "*.zap2it.com"
+*  issuer: C=US; ST=Arizona; L=Scottsdale; O=GoDaddy.com, Inc.; OU=http://certs.godaddy.com/repository/; CN=Go Daddy Secure Certificate Authority - G2
+*  SSL certificate verify ok.
+* Using HTTP2, server supports multi-use
+* Connection state changed (HTTP/2 confirmed)
+* Copying HTTP/2 data in stream buffer to connection buffer after upgrade: len=0
+* Using Stream ID: 1 (easy handle 0x1af30ec0)
+> POST /gapzap_webapi/api/program/PostEpisodeGuide HTTP/2
+> Host: tvlistings.zap2it.com
+> user-agent: curl/7.72.0
+> accept: */*
+> content-length: 68
+> content-type: application/x-www-form-urlencoded
+>
+* Connection state changed (MAX_CONCURRENT_STREAMS == 128)!
+* We are completely uploaded and fine
+< HTTP/2 200
+< date: Sat, 07 Nov 2020 13:00:01 GMT
+< content-type: application/json; charset=utf-8
+< content-length: 6667
+< server: Apache
+< cache-control: no-cache
+< expires: -1
+< pragma: no-cache
+< vary: Accept-Encoding
+< access-control-allow-origin: *
+<
+{
+  "episodeGuideTab": {
+    "season": {
+      "number": "9",
+      "episodes": [
+        {
+          "originalAirDate": "2010-07-06T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730194",
+          "seasonNumber": "9",
+          "episodeNumber": "16",
+          "episodeTitle": "Three-in-One",
+          "releaseYear": "",
+          "synopsis": "When a real estate agent's body is discovered, Nichols must rely on his father.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-07-06T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730191",
+          "seasonNumber": "9",
+          "episodeNumber": "15",
+          "episodeTitle": "Inhumane Society",
+          "releaseYear": "",
+          "synopsis": "A boxer's career is derailed when authorities discover he leads a dog fighting ring.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-06-29T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730192",
+          "seasonNumber": "9",
+          "episodeNumber": "14",
+          "episodeTitle": "Palimpsest",
+          "releaseYear": "",
+          "synopsis": "Ghosts from Nichols' past return as he investigates the murder of an eccentric book dealer.",
+          "displayRating": "",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-06-22T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730195",
+          "seasonNumber": "9",
+          "episodeNumber": "13",
+          "episodeTitle": "The Mobster Will See You Now",
+          "releaseYear": "",
+          "synopsis": "A mid-level government official is murdered after he threatens two doctors with blackmail.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-06-15T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730193",
+          "seasonNumber": "9",
+          "episodeNumber": "12",
+          "episodeTitle": "True Legacy",
+          "releaseYear": "",
+          "synopsis": "When the owner of a popular food truck is murdered, the investigation leads to a powerful political family that will do anything to maintain its dynasty.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-06-08T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730190",
+          "seasonNumber": "9",
+          "episodeNumber": "11",
+          "episodeTitle": "Lost Children of the Blood",
+          "releaseYear": "",
+          "synopsis": "The discovery of an exsanguinated college student leads the detectives to a fanatical cult.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-06-01T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730189",
+          "seasonNumber": "9",
+          "episodeNumber": "10",
+          "episodeTitle": "Disciple",
+          "releaseYear": "",
+          "synopsis": "A body discovered at a construction site follows the pattern of an executed serial killer.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-05-25T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730188",
+          "seasonNumber": "9",
+          "episodeNumber": "9",
+          "episodeTitle": "Traffic",
+          "releaseYear": "",
+          "synopsis": "When a magazine publisher is murdered, a wide array of suspects surfaces.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-05-18T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730187",
+          "seasonNumber": "9",
+          "episodeNumber": "8",
+          "episodeTitle": "Love on Ice",
+          "releaseYear": "",
+          "synopsis": "Four high school friends are being blackmailed over the death of another friend.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-05-11T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730186",
+          "seasonNumber": "9",
+          "episodeNumber": "7",
+          "episodeTitle": "Love Sick",
+          "releaseYear": "",
+          "synopsis": "A girl from the Midwest is murdered after being treated at a medical center.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-05-04T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730185",
+          "seasonNumber": "9",
+          "episodeNumber": "6",
+          "episodeTitle": "Abel & Willing",
+          "releaseYear": "",
+          "synopsis": "The team investigates a murderous scientist who preys on couples, forcing them to choose which one of them will die.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-04-27T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730184",
+          "seasonNumber": "9",
+          "episodeNumber": "5",
+          "episodeTitle": "Gods & Insects",
+          "releaseYear": "",
+          "synopsis": "Nichols and Stevens investigate the death and dismemberment of a man found in a storm drain.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-04-20T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730183",
+          "seasonNumber": "9",
+          "episodeNumber": "4",
+          "episodeTitle": "Delicate",
+          "releaseYear": "",
+          "synopsis": "Nichols and Stevens investigate the death of a ballerina at a New York conservatory.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-04-13T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730182",
+          "seasonNumber": "9",
+          "episodeNumber": "3",
+          "episodeTitle": "Broad Channel",
+          "releaseYear": "",
+          "synopsis": "When an NYPD detective is murdered, Nichols and Stevens must investigate in a seaside town.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-04-06T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730181",
+          "seasonNumber": "9",
+          "episodeNumber": "2",
+          "episodeTitle": "Loyalty",
+          "releaseYear": "",
+          "synopsis": "The detectives try to stop an illegal arms deal and hunt for Somali terrorists.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        },
+        {
+          "originalAirDate": "2010-03-30T00:00Z",
+          "programGenres": "Crime drama",
+          "tmsID": "ep004461730180",
+          "seasonNumber": "9",
+          "episodeNumber": "1",
+          "episodeTitle": "Loyalty",
+          "releaseYear": "",
+          "synopsis": "Capt. Ross finds himself in the center of an overseas conflict.",
+          "displayRating": "TV-14",
+          "isNew": false,
+          "isLive": false,
+          "isPremier": false,
+          "isFinale": false,
+          "tags": "STEREO|CC",
+          "timings": [],
+          "ovdDetails": []
+        }
+      ],
+      "totalepisodecount": "16"
+    },
+    "seasons": [
+      "10",
+      "9",
+      "8",
+      "7",
+      "6",
+      "5",
+      "4",
+      "3",
+      "2",
+      "1",
+      "0"
+    ]
+  }
+}

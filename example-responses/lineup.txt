@@ -1,4 +1,6 @@
-$ curl --verbose 'https://tvlistings.zap2it.com/api/grid?lineupId=-&headendId=lineupId&timespan=6&country=USA&postalCode=78723&time=1604426400'
+$ curl \
+  --verbose \
+  'https://tvlistings.zap2it.com/api/grid?lineupId=-&headendId=lineupId&timespan=6&country=USA&postalCode=78723&time=1604426400'
 *   Trying 44.227.137.234:443...
 * Connected to tvlistings.zap2it.com (44.227.137.234) port 443 (#0)
 * ALPN, offering h2

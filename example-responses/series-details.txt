@@ -1,4 +1,7 @@
-$ curl --verbose 'https://tvlistings.zap2it.com/api/program/overviewDetails' -d 'programSeriesID=SH00753791'
+$ curl \
+  --verbose \
+  'https://tvlistings.zap2it.com/api/program/overviewDetails' \
+  -d 'programSeriesID=SH00753791'
 *   Trying 52.88.250.209:443...
 * Connected to tvlistings.zap2it.com (52.88.250.209) port 443 (#0)
 * ALPN, offering h2

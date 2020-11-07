@@ -1,4 +1,6 @@
-$ curl --verbose 'https://tvlistings.zap2it.com/gapzap_webapi/api/Providers/getPostalCodeProviders/USA/78723/gapzap/en'
+$ curl \
+  --verbose \
+  'https://tvlistings.zap2it.com/gapzap_webapi/api/Providers/getPostalCodeProviders/USA/78723/gapzap/en'
 *   Trying 44.227.137.234:443...
 * Connected to tvlistings.zap2it.com (44.227.137.234) port 443 (#0)
 * ALPN, offering h2
