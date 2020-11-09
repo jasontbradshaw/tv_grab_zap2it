@@ -34,6 +34,15 @@ XMLTV_DESCRIPTION = 'USA/Canada (zap2it.com)'
 XMLTV_CAPABILITIES = %w[baseline cache].freeze
 
 ZAP2IT_API_HOST = 'https://tvlistings.zap2it.com'
+WIKIPEDIA_API_HOST = 'https://en.wikipedia.org/w/api.php'
+
+# The name of the Wikipedia "template" that contains the information we're
+# looking for. This is basically a built-in directive for displaying information
+# about something in a standardized way, in our case a television station.
+#
+# See https://en.wikipedia.org/wiki/Template:Infobox_television_station for the
+# template's documentation.
+WIKIPEDIA_TV_STATION_AFFILIATION_TEMPLATE_TITLE = 'Infobox television station'
 
 PROGRAM_NAME = 'tv_grab_zap2it'
 VERSION = Gem::Version.new('0.0.1').freeze
@@ -360,6 +369,7 @@ class Channel
   attr_reader \
     :provider,
     :call_sign,
+    :name,
     :id,
     :number,
     :image_url
@@ -367,6 +377,7 @@ class Channel
   def initialize(
     provider: nil, # Provider
     call_sign: nil, # String
+    name: nil, # String | nil
     id: nil, # String
     number: nil, # String
     image_url: nil # String
@@ -380,30 +391,42 @@ class Channel
       .name('call_sign')
       .non_nil
       .is_a(String)
-      .non_empty
       .strip
+      .non_empty
       .parse(call_sign)
+
+    # Name is optional.
+    @name =
+      unless name.nil?
+        Arg
+          .name('name')
+          .is_a(String)
+          .strip
+          .non_empty
+          .parse(name)
+      end
 
     @id = Arg
       .name('id')
       .non_nil
       .is_a(String)
-      .non_empty
       .strip
+      .non_empty
       .parse(id)
 
     @number = Arg
       .name('number')
       .non_nil
       .is_a(String)
-      .non_empty
       .strip
+      .non_empty
       .parse(number)
 
     @image_url = Arg
       .name('image_url')
       .non_nil
       .is_a(String)
+      .strip
       .uri
       .parser do |uri|
         # The URL comes in "naked" and needs to be secure-ified.
@@ -940,9 +963,9 @@ def parse_config_from_args(
         .parse(s)
 
       config.channels = raw_channels
-        .split(/,+/)
+        .split(/,/)
         .map(&:strip) # Handle interior whitespace
-        .compact # Remove empty strings
+        .reject(&:empty?) # Remove empty strings
         .to_set
     end
   end
@@ -1019,6 +1042,618 @@ def fetch(
     rescue JSON::ParserError => err
       raise IOError, "Failed to parse HTTP response from #{uri}: #{err}"
     end
+  end
+end
+
+# Retrieves the Wikitext content from the given page info with revisions if it
+# has any, otherwise returns `nil`.
+def get_page_content(
+  page_info # OpenStruct, Wikipedia page info response
+) # String | nil
+  page_content_container = page_info.dig(:revisions, 0, :slots, :main)
+  return nil if page_content_container.nil?
+
+  # We expect only Wikitext content and fail on anything else.
+  return nil unless page_content_container.contentformat == 'text/x-wiki'
+
+  page_content_container.content
+end
+
+# Parse all the links from the given page's content, if any, returning up to
+# `limit` of them (default no limit).
+def get_page_link_titles(
+  page_info, # OpenStruct, Wikipedia page info response
+  limit: 999_999_999
+) # Array<String>, possibly empty
+  # Parse the page content to find links, returning them if found.
+  page_content = get_page_content(page_info)
+  return [] if page_content.nil?
+
+  # This doesn't perfectly match all links since it'll probably miss those with
+  # `]` or `|` in their titles, but it's good enough for our purposes.
+  page_content
+    .scan(
+      %r[
+        # Link open token
+        \[\[
+
+        \s*
+
+        # One or more chars that's not a pipe or a likely close token, consuming
+        # as little as possible to obtain this (i.e. excluding trailing
+        # whitespace). This is the title of the link, i.e. the page title to
+        # which it refers.
+        (
+          [^\|\]]+?
+        )
+
+        # Optionally, a pipe followed by some more _optional_ text that's not a
+        # close token. This is the "text" of the link, what's displayed to the
+        # user if different from the title given. If a pipe with no following
+        # text is given, this gets auto-looked up from the linked page,
+        # apparently.
+        (?:
+          \s*
+
+          \|
+
+          \s*
+
+          [^\]]*
+        )?
+
+        \s*
+
+        # Link close token
+        \]\]
+      ]x
+    )
+    .lazy
+    .map(&:first) # Obtain the first group, i.e. the page title
+    .map(&:strip) # Ensure it has no extra whitespace
+    .take(limit)
+    .to_a
+end
+
+# Returns `true` when the given page info looks like it represents a television
+# station with affiliation information, `false` otherwise.
+def does_page_contain_tv_affiliation_info(
+  page_info, # OpenStruct, Wikipedia page info response
+  general_call_sign: nil # The page's call sign, ignored if not provided
+) # Boolean
+  # The page's title starts with our general call sign, if given.
+  has_title_prefix =
+    if general_call_sign.nil?
+      true
+    else
+      page_info.title.start_with?(general_call_sign)
+    end
+
+  # The page content looks like it probably contains the TV station affiliation
+  # information template.
+  page_content = get_page_content(page_info)
+  has_tv_info = /\{\{\s*#{Regexp.escape(WIKIPEDIA_TV_STATION_AFFILIATION_TEMPLATE_TITLE)}/.match?(page_content)
+
+  has_title_prefix && has_tv_info
+end
+
+# Retrive the Wikipedia page information for a TV station and obtain the
+# affiliate information from said page. If no affiliate information can be found
+# for the given call sign prefix, returns `nil`.
+def fetch_station_affiliate_info(
+  country, # :USA | :CAN
+  call_sign, # String, something like `KABCDT1`
+  cache: OpenStructCache.new # OpenStructCache
+) # Hash<String channel number, String affiliate name> | nil
+  # TODO: Support Canada as well!
+  return nil unless country == :USA
+
+  # There's no need to update the page information frequently since it shouldn't
+  # change very often at all, or at least not in a way that materially affects
+  # us.
+  ttl_seconds = 30 * TimeInterval::DAYS
+
+  # First, do a general search for pages prefixed with the "general" call sign,
+  # i.e. the first four characters of the call sign we were given. This turns
+  # something like `KVUEDT` into `KVUE`, which is the title a Wikipedia entry
+  # for a TV station call sign almost universally starts with.
+  #
+  # If we find a page that contains a TV station affiliate information template
+  # and has a title that starts with our general call sign, this almost
+  # certainly the page we're looking for!
+  #
+  # For an example query request, see
+  # https://en.wikipedia.org/w/api.php?action=query&format=json&prop=revisions&generator=allpages&formatversion=2&rvprop=content&rvslots=main&gapprefix=KADT&gaplimit=5
+  general_call_sign = call_sign[0...4]
+  general_query_response = fetch(
+    WIKIPEDIA_API_HOST,
+
+    query: {
+      # Get a JSON response in the latest stable version.
+      format: :json,
+      formatversion: 2,
+
+      # We're looking for something!
+      action: :query,
+
+      # Get general and template page information. A "template" is essentially a
+      # standardized way of displaying information on a Wikipedia page.
+      prop: 'revisions',
+      generator: :allpages,
+
+      # Include the latest revision so we can parse its text to obtain the data
+      # we're looking for.
+      rvprop: :content,
+      rvslots: :main,
+
+      # Look for pages that start with our general call sign. We limit the
+      # number of results since if nothing shows up in the first handful, it's
+      # quite unlikely that we're going to find anything relevant anyway.
+      gapprefix: general_call_sign,
+      gaplimit: 5,
+    },
+
+    cache: cache,
+    ttl_seconds: ttl_seconds,
+  )
+
+
+  # Pull the page info values from the query response.
+  general_query_page_info_responses = general_query_response.dig(:query, :pages)
+
+  # If we got no responses at all, we're out of luck.
+  if general_query_page_info_responses.nil? || general_query_page_info_responses.empty?
+    return nil
+  end
+
+  # First, look for _any_ response that happens to fit exactly what we were
+  # looking for.
+  page_info = general_query_page_info_responses.find do |general_page_info|
+    does_page_contain_tv_affiliation_info(
+      general_page_info,
+      general_call_sign: general_call_sign,
+    )
+  end
+
+  # If we didn't find any page info directly, generate and fetch a list of page
+  # titles at which to look for TV affiliate information. These can come from
+  # redirects and/or disambiguation pages.
+  #
+  # For an example query that contains both of these kinds of results, see
+  # https://en.wikipedia.org/w/api.php?action=query&format=json&prop=revisions&generator=allpages&formatversion=2&rvprop=content&rvslots=main&gapprefix=KADT&gaplimit=5
+  if page_info.nil?
+    # Match strings that look like they might be TV station call sign page
+    # titles.
+    starts_with_call_sign_regex = /^[KW][A-Z0-9]{3}/
+
+    # Generate an array of links that look like they might contain the
+    # information we seek.
+    promising_page_titles = []
+
+    # First, add call-sign-like redirect pages since these are the most likely
+    # source of data.
+    general_query_page_info_responses.each do |general_page_info|
+      # Is the page a redirect? Add it if the redirect link looks like a call
+      # sign page.
+      content = get_page_content(general_page_info)
+      if /#REDIRECT/.match(content)
+        # The first link in a redirect page is the page to which it redirects.
+        redirect_page_title = get_page_link_titles(general_page_info, limit: 1)
+          .first
+
+        if starts_with_call_sign_regex.match?(redirect_page_title)
+          promising_page_titles << redirect_page_title
+        end
+      end
+    end
+
+    # Next, add links that look like they point at call sign page titles.
+    #
+    # This "pattern" is indicative of disambiguation pages that link off to
+    # other TV stations, e.g. because the call sign overlaps with some other
+    # thing that uses the same four general call sign letters.
+    #
+    # Luckily for us, it seems that most (all?) television station pages have
+    # titles that start with their general call signs!
+    general_query_page_info_responses.each do |general_page_info|
+      page_link_titles = get_page_link_titles(general_page_info)
+      page_link_titles.each do |title|
+        if starts_with_call_sign_regex.match?(title)
+          promising_page_titles << title
+        end
+      end
+    end
+
+    # Remove any duplicate page titles so we don't waste our time re-fetching
+    # and re-parsing duplicate responses.
+    promising_page_titles.uniq!
+
+    # Try each page title one-by-one until (if...) we find a page that matches
+    # our requirements.
+    #
+    # For an example request for a particular page, see
+    # https://en.wikipedia.org/w/api.php?action=query&format=json&prop=revisions&generator=allpages&formatversion=2&rvprop=content&rvslots=main&gapfrom=KADT-LD&gapto=KADT-LD&gaplimit=1
+    promising_page_titles.each do |page_title|
+      potential_page_info_response = fetch(
+        WIKIPEDIA_API_HOST,
+
+        query: {
+          format: :json,
+          formatversion: 2,
+
+          action: :query,
+
+          prop: 'revisions',
+          generator: :allpages,
+
+          rvprop: :content,
+          rvslots: :main,
+
+          # Look for one page with the exact title we're looking for.
+          gapfrom: page_title,
+          gapto: page_title,
+          gaplimit: 1,
+        },
+
+        cache: cache,
+        ttl_seconds: ttl_seconds,
+      )
+
+      # If we got no response at all, we're out of luck.
+      potential_page_info = potential_page_info_response.dig(:query, :pages, 0)
+      next if potential_page_info.nil?
+
+      # If it's not a TV station page, keep looking.
+      next unless does_page_contain_tv_affiliation_info(potential_page_info)
+
+      # Otherwise, we found our page!
+      page_info = potential_page_info
+      break
+    end
+  end
+
+  # If we _still_ didn't find what we're looking for, there's no hope left.
+  return nil if page_info.nil?
+
+  # Grab the Wikitext markup from the first (and only) revision that should have
+  # been returned; we'll parse this to obtain our data.
+  page_wikitext = get_page_content(page_info)
+  return nil if page_wikitext.nil?
+
+  parse_station_affiliations(page_wikitext)
+end
+
+# Given some Wikitext markup, attempts to parse out TV station affiliations
+# section token list, returning `nil` if unable to do so.
+def parse_station_affiliations(
+  wikitext # String, in Wikitext markup format
+) # Hash<String station number, String station name>
+  text_tokens = [
+    token_template_start = '{{',
+    token_template_end = '}}',
+    token_link_start = '[[',
+    token_link_end = ']]',
+    token_bold = "'''",
+    token_equals = '=',
+    token_pipe = '|',
+  ]
+
+  # A HTML/XML tag, e.g. `<ref>`.
+  regexp_tokens = [
+    token_start_tag = %r[<\s*[^/]\s*[^>]+?\s*>],
+    token_end_tag = %r[<\s*/\s*[^>]+?\s*>],
+  ]
+
+  # This regex groups by the tokens we're looking for, which means when we split
+  # the input text we'll receive an array that contains not only the parts
+  # _between_ the tokens, but also the tokens themselves. E.g. if we split 'axb'
+  # by 'x', we'll get `['a', 'x', 'b']` instead of `['a', 'b']`.
+  tokenizer = %r[
+    (
+      # Turn our token list into something like `a|b|c`
+      #{text_tokens.map { |t| Regexp.escape(t) }.join('|')}
+      | #{regexp_tokens.join('|')}
+    )
+  ]x
+
+  # Create a token stream from our Wikitext.
+  token_stream = wikitext
+    .split(tokenizer)
+    .lazy
+    .map(&:strip)
+    .reject(&:empty?)
+
+  # We're looking for text much like the following:
+  #
+  # ```wikitext
+  # {{Infobox television station
+  # ...
+  # | affiliations = ...
+  # ...
+  # }}
+  #
+  # To obtain it, we have to essentially parse the token stream to find the
+  # overall template, then parse the text contained within the attribute we care
+  # about to turn it into channel numbers mapped to the corresponding names,
+  # unwrapping links and bold text as necessary.
+  #
+  # Luckily, we can ignore _most_ of what's going on and just look for the
+  # particular sequences we care about...
+  # ```
+  template_start_pattern = [
+    token_template_start,
+    WIKIPEDIA_TV_STATION_AFFILIATION_TEMPLATE_TITLE,
+  ].freeze
+  found_tv_template = false
+
+  affiliations_start_pattern = [
+    token_pipe,
+    'affiliations',
+    token_equals,
+  ].freeze
+  found_affiliations = false
+
+  seen_tokens = []
+  depth = 0
+  token_stream.each do |token|
+    seen_tokens << token
+
+    # Look for the beginning of our station info template.
+    if (
+        !found_tv_template &&
+        seen_tokens[-template_start_pattern.length..] == template_start_pattern
+    )
+      # Throw everything else away since at this point we only care about
+      # looking for the next pattern.
+      seen_tokens.clear
+      found_tv_template = true
+      next
+    end
+
+    # Find the affiliations section once we're inside the station info template.
+    if (
+        found_tv_template &&
+        !found_affiliations &&
+        seen_tokens[-affiliations_start_pattern.length..] == affiliations_start_pattern
+    )
+      seen_tokens.clear
+      found_affiliations = true
+      next
+    end
+
+    # Once we're inside the affiliations list, we do proper stack-based parsing
+    # and consume tokens until our depth is back to zero again, at which point
+    # we re-join the contents of the stack and return the result.
+    if found_affiliations
+      # Once we've returned to zero depth and found the end of the affiliations
+      # section (either the end of the parent template or we've encountered the
+      # next template attribute), all the tokens we've seen make up the contents
+      # of the affilations attribute and we can stop parsing.
+      if depth.zero? && [token_pipe, token_template_end].include?(token)
+        # Discard the token we just matched since it has no matching "open"
+        # variant since we cleared the stack when we entered the affiliations
+        # attribute.
+        seen_tokens.pop
+        break
+      end
+
+      # Otherwise, track the current AST depth so we'll know when to stop
+      # parsing the affiliations attribute.
+      case token
+        when token_template_start
+          depth += 1
+        when token_link_start
+          depth += 1
+
+        when token_template_end
+          depth -= 1
+        when token_link_end
+          depth -= 1
+      end
+    end
+  end
+
+  # If we never found the affiliations attribute, we failed to parse the input.
+  return nil unless found_affiliations
+
+  # At this point, we've contructed a list of tokens that make up the "value" of
+  # the affiliations expression in the template we were looking for. We can now
+  # parse _this_ list and turn it into the channel numbers/names we're looking
+  # for.
+  affiliation_token_stream = seen_tokens.dup
+
+  # We expect most affiliations to come in the form of an "unbulleted list"
+  # (https://en.wikipedia.org/wiki/Template:Unbulleted_list). We parse out the
+  # leading pipe so that from here on, every time we see a pipe we can take all
+  # the tokens we've accumulated and turn them into a human-readable name and
+  # channel number.
+  ubl_template_start_pattern = [
+    token_template_start,
+    'ubl',
+    token_pipe,
+  ].freeze
+
+  # Sometimes, we get a "manually-constructed list" that was created with `<br>`
+  # and/or `<br />` tags instead of a "fancy" list created with the `ubl`
+  # template.
+  #
+  # When we see a manually-constructed list, we convert it into a `ubl` template
+  # so we can parse just the single format later.
+  br_tag_token = %r[^<\s*br\s*/?\s*>$]
+  unless affiliation_token_stream.find { |t| t =~ br_tag_token }.nil?
+    affiliation_token_stream = [
+      *ubl_template_start_pattern,
+
+      # Replace all the `<br>` tags with pipes since the tags are effectively
+      # acting as list item separators.
+      *affiliation_token_stream.map do |token|
+        if token =~ br_tag_token
+          token_pipe
+        else
+          token
+        end
+      end,
+
+      token_template_end,
+    ]
+  end
+
+  if affiliation_token_stream[0...ubl_template_start_pattern.length] != ubl_template_start_pattern
+    return nil
+  else
+    # Strip off the template start tokens since we don't need them.
+    ubl_template_start_pattern.length.times { affiliation_token_stream.shift }
+  end
+
+  raw_affiliations = []
+
+  found_link = false
+  found_tag = false
+  affiliation_tokens = []
+  affiliation_token_stream.each do |token|
+    affiliation_tokens << token
+
+    # Skip bold text markers entirely, effectively un-bolding all bolded text.
+    if token == token_bold
+      affiliation_tokens.pop
+      next
+    end
+
+    # Skip all tags and their contents. Typically, these are `ref` tags and we
+    # don't care about them.
+    if !found_tag && token =~ token_start_tag
+      affiliation_tokens.pop
+      found_tag = true
+      next
+    end
+
+    # Discard all tokens until we find a matching end tag.
+    if found_tag
+      affiliation_tokens.pop
+
+      if token =~ token_end_tag
+        found_tag = false
+      end
+
+      next
+    end
+
+    if !found_link && token == token_link_start
+      found_link = true
+      next
+    end
+
+    # "Unwrap" links to obtain only their text, if any. See
+    # https://en.wikipedia.org/wiki/Help:Wikitext#Links_and_URLs for more
+    # information on Wikitext link syntax.
+    if found_link && token == token_link_end
+      # Rewind the token stream to the start of the link, consuming all the
+      # tokens for specific processing here.
+      link_text_tokens = []
+      until link_text_tokens.last == token_link_start || affiliation_tokens.empty? do
+        link_text_tokens << affiliation_tokens.pop
+      end
+
+      # Reverse the tokens we just collected them in reverse order to obtain the
+      # "natural" order for further processing.
+      link_text_tokens.reverse!
+
+      # Strip off the leading and trailing link markers. If we didn't find the
+      # appropriate tokens there, explode since something is wrong.
+      first_link_token = link_text_tokens.shift
+      last_link_token = link_text_tokens.pop
+      if first_link_token != token_link_start && last_link_token != token_link_end
+        raise IOError, 'Encountered invalid Wikitext link'
+      end
+
+      # "Unwrap" the link to contain only its actual text.
+      #
+      # These are most of the potential Wikitext link formats:
+      # ```wikitext
+      # [[standard link]]
+      # [[link|renamed link]]
+      # [[auto-renamed link|]]
+      # [[blended link]]ing
+      # [[Wikipedia:Page link#To a section]]
+      # [[it:Otra lingua]]
+      # [[Wiktionary:intra-wiki link]]
+      # ```
+      #
+      # In practice, we hope to only see standard and renamed links here, though
+      # technically any of these is possible.
+      if link_text_tokens.include?(token_pipe)
+        unpiped_tokens = []
+        found_pipe = false
+        link_text_tokens.each do |token|
+          unpiped_tokens << token
+
+          if !found_pipe && token == token_pipe
+            unpiped_tokens.clear
+            found_pipe = true
+          end
+        end
+
+        # If we found no tokens after the pipe, simply remove the pipe from the
+        # original tokens and treat the remaining tokens as the text of the
+        # link. This happens with auto-renamed links, which look like
+        # `[[Foo|]]`; in this case, we use the standard link text before the
+        # pipe.
+        if unpiped_tokens.empty?
+          link_text_tokens.reject! { |t| t == token_pipe }
+        else
+          link_text_tokens = unpiped_tokens
+        end
+      end
+
+      # Add the unwrapped link text tokens back to the original token stream.
+      affiliation_tokens.concat(link_text_tokens)
+      found_link = false
+      next
+    end
+
+    # If we find a bare pipe token or the end of the `ubl` template, this
+    # indicates we've completed an item and can output it for later processing.
+    if !found_link && token == token_pipe || token == token_template_end
+      affiliation_tokens.pop
+      raw_affiliations << affiliation_tokens.join
+      affiliation_tokens.clear
+    end
+  end
+
+  # We should have consumed _all_ the affiliation tokens since they should have
+  # been only a single `ubl` template instance. If they weren't we have no idea
+  # what the affiliations contained and are unlikely to be able to parse out
+  # anything useful from our resulting text affiliations.
+  return nil unless affiliation_tokens.empty?
+
+  # Turn the text affiliations into channel numbers and channel names.
+  raw_affiliations.inject({}) do |all, raw_affiliation|
+    # We expect the text we have at this point to look like:
+    # ```
+    # 1.2: Channel name (maybe some text in parenthesis)
+    # ```
+
+    # Split into the "channel" and "name" parts we expect.
+    channel, raw_name = raw_affiliation
+      .split(':', 2)
+      .map(&:strip)
+      .reject(&:empty?)
+
+    # This channel/name didn't conform to our expected format.
+    next all if channel.nil? || raw_name.nil?
+
+    # Strip all parenthesized text from the channel name since it's usually
+    # something like `(O&O)` for "owned and operated", which is irrelevant for
+    # our purposes.
+    name = raw_name
+      .gsub(/\([^)]+\)/, '')
+      .strip
+
+    # If the name was _only_ parenthesized, it'd be a very odd name indeed!
+    next all if name.empty?
+
+    all[channel] = name
+    all
   end
 end
 
@@ -1113,18 +1748,26 @@ def fetch_channels(
   )
 
   # We sort by channel number for a human-friendly display.
-  lineup_json
+  raw_channels = lineup_json
     .channels
     .sort_by { |c| [(Float(c.channelNo) rescue c.channelNo), c.callSign] }
-    .map do |c|
-      Channel.new(
-        provider: provider,
-        call_sign: c.callSign,
-        id: c.channelId, # TODO: Should this be `id` instead? What's the difference?
-        number: c.channelNo,
-        image_url: c.thumbnail,
-      )
-    end
+
+  raw_channels.map do |c|
+    affiliates = fetch_station_affiliate_info(
+      provider.country,
+      c.callSign,
+      cache: cache,
+    ) || {}
+
+    Channel.new(
+      provider: provider,
+      call_sign: c.callSign,
+      name: affiliates[c.channelNo],
+      id: c.channelId, # TODO: Should this be `id` instead? What's the difference?
+      number: c.channelNo,
+      image_url: c.thumbnail,
+    )
+  end
 end
 
 # Fetch overall channel info and return the channel that corresponds to the
@@ -1229,8 +1872,8 @@ def display_channels(
   )
 
   display_table(
-    [:'CALL_SIGN', :NUMBER, :ID],
-    channels.map { |c| [c.call_sign, c.number, c.id] },
+    [:'CALL_SIGN', :NUMBER, :NAME, :ID],
+    channels.map { |c| [c.call_sign, c.number, c.name, c.id] },
   )
 end
 
