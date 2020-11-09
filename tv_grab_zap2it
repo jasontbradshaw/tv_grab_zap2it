@@ -748,7 +748,7 @@ def parse_config_from_args(
     quiet?: false,
 
     # Program-specific configuration, mostly required.
-    channels: Set.new, # Set<String>
+    channel_tokens: Set.new, # Set<String>
     country: nil, # :USA | :CAN
     postal_code: nil, # String
     provider_id: nil, # String
@@ -951,9 +951,9 @@ def parse_config_from_args(
       config[:return_channels?] = true
     end
 
-    channels_flag = '--channels CHANNELS'
+    channels_flag = '--channels'
     opts.on(
-      channels_flag,
+      "#{channels_flag} CHANNELS",
       "A comma-delimited list of channel call signs, numbers, and/or ids for which to download data. If non are provided, all available channels will be downloaded.",
     ) do |s|
       raw_channels = Arg
@@ -962,7 +962,7 @@ def parse_config_from_args(
         .non_empty
         .parse(s)
 
-      config.channels = raw_channels
+      config.channel_tokens = raw_channels
         .split(/,/)
         .map(&:strip) # Handle interior whitespace
         .reject(&:empty?) # Remove empty strings
@@ -1714,13 +1714,17 @@ def fetch_provider(
 end
 
 # Downloads and returns the channels available for the given provider at the
-# given time/time span.
+# given time/time span, potentially limiting them to some list of channels.
 def fetch_channels(
   provider, # Provider
   date = Time.now, # Time, but will be truncated to its date component
   time_span_hours = 6, # 1 | 2 | 3 | 4 | 5 | 6
+  channel_tokens: Set.new, # Enumerable<String>. If non-empty, channels to fetch
   cache: OpenStructCache.new # OpenStructCache
 ) # Array<Channel>
+  # We need fast random access to these.
+  channel_tokens = channel_tokens.to_set
+
   # When fetching channels, we really only care about "right now" and don't
   # expect the values to change much over time. However, we cache the response
   # for a while anyway.
@@ -1747,10 +1751,24 @@ def fetch_channels(
     ttl_seconds: ttl_seconds,
   )
 
-  # We sort by channel number for a human-friendly display.
+  # We sort by channel number for a human-friendly display and limit our
+  # channels to the ones requested.
   raw_channels = lineup_json
     .channels
     .sort_by { |c| [(Float(c.channelNo) rescue c.channelNo), c.callSign] }
+    .select do |c|
+      (
+        # If we weren't given any channels to which to limit our fetch, keep all
+        # channels.
+        channel_tokens.empty? ||
+
+        # Otherwise, keep only channels that have an identifier that matches one
+        # of the given tokens.
+        channel_tokens.include?(c.channelId) ||
+        channel_tokens.include?(c.callSign) ||
+        channel_tokens.include?(c.channelNo)
+      )
+    end
 
   raw_channels.map do |c|
     affiliates = fetch_station_affiliate_info(
@@ -1864,10 +1882,12 @@ end
 # given provider.
 def display_channels(
   provider, # Provider
+  channel_tokens: Set.new, # Enumerable<String> | nil. If non-empty, channels to display
   cache: OpenStructCache.new # OpenStructCache
 ) # String
   channels = fetch_channels(
     provider,
+    channel_tokens: channel_tokens,
     cache: cache,
   )
 
@@ -1947,6 +1967,7 @@ def main!
 
     output = display_channels(
       provider,
+      channel_tokens: config.channel_tokens,
       cache: cache,
     )
     $output.puts(output)
