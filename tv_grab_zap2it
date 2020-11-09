@@ -528,7 +528,7 @@ class ConfigOpenStruct < OpenStruct
 
     if value.nil?
       article_text =
-        if name =~ /^[aeiou]/
+        if /^[aeiou]/.match?(name)
           "An"
         else
           "A"
@@ -1197,7 +1197,6 @@ def fetch_station_affiliate_info(
     ttl_seconds: ttl_seconds,
   )
 
-
   # Pull the page info values from the query response.
   general_query_page_info_responses = general_query_response.dig(:query, :pages)
 
@@ -1480,14 +1479,14 @@ def parse_station_affiliations(
   # When we see a manually-constructed list, we convert it into a `ubl` template
   # so we can parse just the single format later.
   br_tag_token = %r[^<\s*br\s*/?\s*>$]
-  unless affiliation_token_stream.find { |t| t =~ br_tag_token }.nil?
+  if affiliation_token_stream.find { |t| br_tag_token.match?(t) }
     affiliation_token_stream = [
       *ubl_template_start_pattern,
 
       # Replace all the `<br>` tags with pipes since the tags are effectively
       # acting as list item separators.
       *affiliation_token_stream.map do |token|
-        if token =~ br_tag_token
+        if br_tag_token.match?(token)
           token_pipe
         else
           token
@@ -1497,6 +1496,12 @@ def parse_station_affiliations(
       token_template_end,
     ]
   end
+
+  # TODO:
+  # Some _other_ times, we get a single affiliation with no channel number, e.g.
+  # for `KADT`, and basically nothing else. In this case, convert it into a
+  # single-item `ubl` template with the "special" channel number `*` to
+  # represent the only affiliation we got.
 
   if affiliation_token_stream[0...ubl_template_start_pattern.length] != ubl_template_start_pattern
     return nil
@@ -1521,7 +1526,7 @@ def parse_station_affiliations(
 
     # Skip all tags and their contents. Typically, these are `ref` tags and we
     # don't care about them.
-    if !found_tag && token =~ token_start_tag
+    if !found_tag && token_start_tag.match?(token)
       affiliation_tokens.pop
       found_tag = true
       next
@@ -1531,7 +1536,7 @@ def parse_station_affiliations(
     if found_tag
       affiliation_tokens.pop
 
-      if token =~ token_end_tag
+      if token_end_tag.match?(token)
         found_tag = false
       end
 
