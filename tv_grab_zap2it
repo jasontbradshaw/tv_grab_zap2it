@@ -49,7 +49,7 @@ WIKIPEDIA_API_HOST = 'https://en.wikipedia.org/w/api.php'
 #
 # See https://en.wikipedia.org/wiki/Template:Infobox_television_station for the
 # template's documentation.
-WIKIPEDIA_TV_STATION_AFFILIATION_TEMPLATE_TITLE = 'Infobox television station'
+WIKIPEDIA_TV_STATION_INFOBOX_TEMPLATE_TITLE = 'Infobox television station'
 
 # All the tokens we care about for use with parsing Wikitext. We don't do a
 # terribly great job at parsing, mostly only caring about the things represented
@@ -63,6 +63,11 @@ WIKITEXT_TOKENS = [
   # for more information.
   WIKITEXT_TOKEN_TEMPLATE_START = '{{',
   WIKITEXT_TOKEN_TEMPLATE_END = '}}',
+
+  # These are... something. I'm not sure what they're _actually_ called, but
+  # they appear to be template-like, just with a different syntax.
+  WIKITEXT_TOKEN_CLASS_START = '{|',
+  WIKITEXT_TOKEN_CLASS_END = '|}',
 
   # A link forms an edge in the graph that is Wikipedia. It typically looks like
   # `[[Some page title]]` or `[[Some page title|Some human-readable page
@@ -99,15 +104,6 @@ WIKITEXT_TOKENIZER = %r[
     | #{WIKITEXT_REGEXP_TOKENS.join('|')}
   )
 ]x.freeze
-
-# A special channel number of sorts that, when returned from affiliations
-# processing, means we don't know the exact channel number and all channels from
-# this affiliate should be treated as having the name mapped to this channel.
-#
-# This appears to happen mostly when a station has only a single
-# channel/affiliate and hence no ambiguity and resulting need to map the
-# station's channels to their specific affiliates.
-UNKNOWN_CHANNEL_NUMBER = '*'
 
 PROGRAM_NAME = 'tv_grab_zap2it'
 VERSION = Gem::Version.new('0.0.1').freeze
@@ -1197,7 +1193,7 @@ def does_page_contain_tv_affiliation_info(
   # The page content looks like it probably contains the TV station affiliation
   # information template.
   page_content = get_page_content(page_info)
-  has_tv_info = /\{\{\s*#{Regexp.escape(WIKIPEDIA_TV_STATION_AFFILIATION_TEMPLATE_TITLE)}/.match?(page_content)
+  has_tv_info = /\{\{\s*#{Regexp.escape(WIKIPEDIA_TV_STATION_INFOBOX_TEMPLATE_TITLE)}/.match?(page_content)
 
   has_title_prefix && has_tv_info
 end
@@ -1384,119 +1380,201 @@ def fetch_station_affiliate_info(
   page_wikitext = get_page_content(page_info)
   return nil if page_wikitext.nil?
 
-  parse_station_affiliations(page_wikitext)
+  # Parse the page and its required TV station infobox template. If we can't do
+  # either of these, we're not going to be able to extract any useful
+  # information from the page.
+  wikitext_tokens = tokenize_wikitext(page_wikitext)
+  infobox_attributes_to_tokens = parse_station_infobox(wikitext_tokens)
+  return nil if infobox_attributes_to_tokens.nil?
+
+  parse_station_affiliations(infobox_attributes_to_tokens)
 end
 
-# Given some Wikitext markup, attempts to parse out TV station affiliations
-# section token list, returning `nil` if unable to do so.
-def parse_station_affiliations(
-  wikitext # String, in Wikitext markup format
-) # Hash<String station number, String station name>
-  # Create a token stream from our Wikitext.
-  token_stream = wikitext
+# Tokenizes some text, assumed to be Wikitext, and returns a lazy enumerable
+# over its tokens.
+def tokenize_wikitext(
+  s # String
+) # Array<String>
+  s
     .split(WIKITEXT_TOKENIZER)
     .lazy
     .map(&:strip)
     .reject(&:empty?)
+    .to_a
+end
 
+# Extracts the first television station infobox template from the given token
+# stream and returns it, or returns `nil` if no such template could be found.
+def parse_station_infobox(
+  wikitext_tokens # Array<String>
+) # Hash<Symbol parameter name, Array<String Wikitext tokens>> | nil
   # We're looking for text much like the following:
   #
   # ```wikitext
   # {{Infobox television station
+  # | foo = ...
   # ...
-  # | affiliations = ...
-  # ...
+  # | bar = ...
   # }}
   #
-  # To obtain it, we have to essentially parse the token stream to find the
-  # overall template, then parse the text contained within the attribute we care
-  # about to turn it into channel numbers mapped to the corresponding names,
-  # unwrapping links and bold text as necessary.
-  #
-  # Luckily, we can ignore _most_ of what's going on and just look for the
-  # particular sequences we care about...
+  # To obtain it, we search through the token stream to find its first
+  # occurrence, then parse each attribute's tokens into a hash until the
+  # template ends.
   # ```
+
+  # The hash we'll fill will argument names and tokens before converting to an
+  # `OpenStruct` at the very end.
+  infobox_hash = {}
+
   template_start_pattern = [
     WIKITEXT_TOKEN_TEMPLATE_START,
-    WIKIPEDIA_TV_STATION_AFFILIATION_TEMPLATE_TITLE,
+    WIKIPEDIA_TV_STATION_INFOBOX_TEMPLATE_TITLE,
   ].freeze
-  found_tv_template = false
+  found_infobox_template = false
 
-  affiliations_start_pattern = [
-    WIKITEXT_TOKEN_PIPE,
-    'affiliations',
-    WIKITEXT_TOKEN_EQUALS,
-  ].freeze
-  found_affiliations = false
+  # Whether we're parsing an argument of the template, i.e. something like:
+  # ```wikitext
+  # | foo = [[bar]]
+  # ```
+  current_argument_name = nil
 
   seen_tokens = []
   depth = 0
-  token_stream.each do |token|
+  wikitext_tokens.each do |token|
     seen_tokens << token
 
     # Look for the beginning of our station info template.
     if (
-        !found_tv_template &&
+        !found_infobox_template &&
         seen_tokens[-template_start_pattern.length..] == template_start_pattern
     )
       # Throw everything else away since at this point we only care about
-      # looking for the next pattern.
+      # looking for the coming argument token patterns.
       seen_tokens.clear
-      found_tv_template = true
+      depth = 0
+      found_infobox_template = true
       next
     end
 
     # Find the affiliations section once we're inside the station info template.
     if (
-        found_tv_template &&
-        !found_affiliations &&
-        seen_tokens[-affiliations_start_pattern.length..] == affiliations_start_pattern
+        found_infobox_template &&
+        current_argument_name.nil? &&
+        depth.zero? &&
+
+        # Check whether the token stream looks like an argument definition,
+        # something like:
+        # ```wikitext
+        # | foo =
+        # ```
+        seen_tokens[-3] == WIKITEXT_TOKEN_PIPE &&
+        seen_tokens[-1] == WIKITEXT_TOKEN_EQUALS
     )
+      current_argument_name = seen_tokens[-2]
       seen_tokens.clear
-      found_affiliations = true
       next
     end
 
-    # Once we're inside the affiliations list, we do proper stack-based parsing
-    # and consume tokens until our depth is back to zero again, at which point
-    # we re-join the contents of the stack and return the result.
-    if found_affiliations
-      # Once we've returned to zero depth and found the end of the affiliations
-      # section (either the end of the parent template or we've encountered the
-      # next template attribute), all the tokens we've seen make up the contents
-      # of the affilations attribute and we can stop parsing.
-      if depth.zero? && [WIKITEXT_TOKEN_PIPE, WIKITEXT_TOKEN_TEMPLATE_END].include?(token)
-        # Discard the token we just matched since it has no matching "open"
-        # variant since we cleared the stack when we entered the affiliations
-        # attribute.
-        seen_tokens.pop
-        break
-      end
+    # Once we've returned to zero depth and found the end of the argument
+    # definition (either the end of the parent template or we've encountered the
+    # next template attribute), all the tokens we've seen make up the contents
+    # of the argument and we can continue to the next argument.
+    if (
+        found_infobox_template &&
+        !current_argument_name.nil? &&
+        depth.zero? &&
+        [WIKITEXT_TOKEN_PIPE, WIKITEXT_TOKEN_TEMPLATE_END].include?(token)
+    )
+      # Remove the trailing token since this may be necessary to start parsing
+      # the next argument by matching the expected `| foo =` token sequence.
+      trailing_token = seen_tokens.pop
 
-      # Otherwise, track the current AST depth so we'll know when to stop
-      # parsing the affiliations attribute.
-      case token
-        when WIKITEXT_TOKEN_TEMPLATE_START
-          depth += 1
-        when WIKITEXT_TOKEN_LINK_START
-          depth += 1
+      # Stash this argument's tokens in the resulting hash.
+      infobox_hash[current_argument_name.to_sym] = seen_tokens.dup
 
-        when WIKITEXT_TOKEN_TEMPLATE_END
-          depth -= 1
-        when WIKITEXT_TOKEN_LINK_END
-          depth -= 1
-      end
+      # If we encounter a closing template token to finish parsing this
+      # argument, we've finished parsing the entire template!
+      break if trailing_token == WIKITEXT_TOKEN_TEMPLATE_END
+
+      # Reset state so we can parse the next argument, including re-adding the
+      # trailing token we saved earlier so we can match the next argument.
+      seen_tokens.clear
+      seen_tokens << trailing_token
+      current_argument_name = nil
+      next
+    end
+
+    # Generally, track the current parse depth so we'll know when to stop
+    # parsing the current argument attribute and the overall template.
+    case token
+      when WIKITEXT_TOKEN_TEMPLATE_START
+        depth += 1
+      when WIKITEXT_TOKEN_CLASS_START
+        depth += 1
+      when WIKITEXT_TOKEN_LINK_START
+        depth += 1
+
+      when WIKITEXT_TOKEN_TEMPLATE_END
+        depth -= 1
+      when WIKITEXT_TOKEN_CLASS_END
+        depth += 1
+      when WIKITEXT_TOKEN_LINK_END
+        depth -= 1
     end
   end
 
-  # If we never found the affiliations attribute, we failed to parse the input.
-  return nil unless found_affiliations
+  # If we never found the template we were looking for, signal as much by
+  # returning `nil`.
+  return nil unless found_infobox_template
 
-  # At this point, we've contructed a list of tokens that make up the "value" of
-  # the affiliations expression in the template we were looking for. We can now
-  # parse _this_ list and turn it into the channel numbers/names we're looking
-  # for.
-  affiliation_token_stream = seen_tokens.dup
+  infobox_hash
+end
+
+# Retrieve the channel numbers, digital and/or virtual, that a given station
+# broadcasts under.
+def parse_channel_numbers(
+  infobox_attributes_to_tokens # Hash<Symbol parameter name, Array<String Wikitext tokens>>
+) # Array<Integer channel numbers>
+  # The first integer in a channel info attribute should be the channel number;
+  # the attribute token text should look something like:
+  # ```wikitext
+  # 33 ([[ultra high frequency|UHF]])`
+  # ```
+  infobox_attributes_to_tokens
+    .fetch_values(:digital, :virtual) { [] }
+    .map(&:join)
+    .inject([]) do |all_channel_numbers, channel_number_wikitext|
+      match = /(?<channel_number>\d+)/.match(channel_number_wikitext)
+      next all_channel_numbers if match.nil?
+
+      all_channel_numbers << match[:channel_number].to_i
+      all_channel_numbers
+    end
+end
+
+# Given some Wikitext markup, attempts to parse out TV station affiliations from
+# the corresponding tokens, returning `nil` if unable to do so.
+def parse_station_affiliations(
+  infobox_attributes_to_tokens # Hash<Symbol parameter name, Array<String Wikitext tokens>>
+) # Hash<String station number, String station name> | nil
+  affiliations_tokens = infobox_attributes_to_tokens[:affiliations]
+
+  # If the infobox has no affiliations, we're out of luck.
+  return nil if affiliations_tokens.nil?
+
+  # Affiliations infoboxes don't seem to have a "standard" channel number by
+  # which they list their affiliations. E.g., a station may operate under
+  # channels 21 and 43, but the affiliations will only be listed with channel
+  # 21.
+  #
+  # Alternatively, an affiliations section may list only a single affiliate with
+  # _no_ channel numbers at all!
+  #
+  # In these cases, we want to know what the actual channel number(s) for the
+  # station are so we can map _all_ channels to their corresponding
+  # affiliations, and/or do a "speculative" mapping if the affiliation(s) have
+  # no channel numbers listed.
+  channel_numbers = parse_channel_numbers(infobox_attributes_to_tokens)
 
   # We expect most affiliations to come in the form of an "unbulleted list"
   # (https://en.wikipedia.org/wiki/Template:Unbulleted_list). We parse out the
@@ -1513,23 +1591,23 @@ def parse_station_affiliations(
 
   # We now attempt to detect and post-process the major affiliations attribute
   # variants we see.
-  if affiliation_token_stream[0...ubl_template_start_pattern.length] == ubl_template_start_pattern
+  if affiliations_tokens[0...ubl_template_start_pattern.length] == ubl_template_start_pattern
     # This is the "classic" and most common by far variant where the
     # affiliations list contains a single `ubl` template of channel numbers
     # mapped to station names. In this case, we do nothing at all!
-  elsif affiliation_token_stream.find { |t| br_tag_token.match?(t) }
+  elsif affiliations_tokens.find { |t| br_tag_token.match?(t) }
     # Sometimes, we get a "manually-constructed list" that was created with
     # `<br>` and/or `<br />` tags instead of a "fancy" list created with the
     # `ubl` template.
     #
     # When we see a manually-constructed list, we convert it into a `ubl`
     # template so we can parse the `ubl` format later.
-    affiliation_token_stream = [
+    affiliations_tokens = [
       *ubl_template_start_pattern,
 
       # Replace all the `<br>` tags with pipes since the tags are effectively
       # acting as list item separators.
-      *affiliation_token_stream.map do |token|
+      *affiliations_tokens.map do |token|
         if br_tag_token.match?(token)
           WIKITEXT_TOKEN_PIPE
         else
@@ -1544,28 +1622,65 @@ def parse_station_affiliations(
     # a single list item.
 
     # If it doesn't look like the affiliate text contains a channel number, give
-    # it a single fake channel number of `*`, which we can detect and process in
-    # other methods.
-    channel_number_tokens =
-      if affiliation_token_stream.count(WIKITEXT_TOKEN_BOLD) < 2
-        [WIKITEXT_TOKEN_BOLD, "#{UNKNOWN_CHANNEL_NUMBER}:", WIKITEXT_TOKEN_BOLD]
+    # it bunch of channel numbers corresponding to the channel numbers we parsed
+    # earlier. If for some reason we didn't parse _any_ channel numbers, give it
+    # a fake "catch all" channel number of `*`.
+    #
+    # E.g. we're going to turn something like `Network` into a bunch of pairs
+    # like `'''21:''' Network`, `'''21.1:''' Network`, etc. assuming that we'll
+    # catch the _actual_ channel number in there somewhere.
+
+    # If we couldn't find even a single channel number for this channel, give up
+    # entirely since the data we're looking at doesn't seem reliable anyway.
+    return nil if channel_numbers.empty?
+
+    # If it looks like the affiliations contain no channel numbers, re-map them
+    # to a bunch of common channel numbers instead since presumably at least one
+    # of the resulting entries is the actual channel number.
+    remapped_affiliations_tokens =
+      if affiliations_tokens.count(WIKITEXT_TOKEN_BOLD) < 2
+        channel_numbers.flat_map do |channel_parent_number|
+          # Include both the "parent" number as well as variants for a bunch of
+          # "sub" numbers, e.g. if the channel number is 21 then return `["21",
+          # "21.1", "21.2", ...]`
+          (0..9).flat_map do |channel_sub_number|
+            channel_number =
+              if channel_sub_number.zero?
+                channel_parent_number.to_s
+              else
+                "#{channel_parent_number}.#{channel_sub_number}"
+              end
+
+            [
+              # Channel number
+              WIKITEXT_TOKEN_BOLD,
+              "#{channel_number}:",
+              WIKITEXT_TOKEN_BOLD,
+
+              # Name
+              *affiliations_tokens,
+
+              # Argument separator for the next channel number
+              WIKITEXT_TOKEN_PIPE,
+            ]
+          end
+        end[0...-1] # Omit the trailing argument separator
       else
-        []
+        affiliations_tokens
       end
 
-    affiliation_token_stream = [
+    affiliations_tokens = [
       *ubl_template_start_pattern,
-      *channel_number_tokens,
-      *affiliation_token_stream,
+      *remapped_affiliations_tokens,
       WIKITEXT_TOKEN_TEMPLATE_END,
     ]
   end
 
-  if affiliation_token_stream[0...ubl_template_start_pattern.length] != ubl_template_start_pattern
+  if affiliations_tokens[0...ubl_template_start_pattern.length] != ubl_template_start_pattern
     return nil
   else
     # Strip off the template start tokens since we don't need them.
-    ubl_template_start_pattern.length.times { affiliation_token_stream.shift }
+    ubl_template_start_pattern.length.times { affiliations_tokens.shift }
   end
 
   raw_affiliations = []
@@ -1573,7 +1688,7 @@ def parse_station_affiliations(
   found_link = false
   found_tag = false
   affiliation_tokens = []
-  affiliation_token_stream.each do |token|
+  affiliations_tokens.each do |token|
     affiliation_tokens << token
 
     # Skip bold text markers entirely, effectively un-bolding all bolded text.
@@ -1840,16 +1955,7 @@ def fetch_channels(
       cache: cache,
     ) || {}
 
-    channel_name = (
-      # Prefer the name mapped to the actual channel.
-      affiliates[c.channelNo] ||
-
-      # Failing that, use the "unknown channels number" mapping.
-      affiliates[UNKNOWN_CHANNEL_NUMBER] ||
-
-      # Failing all else, we can't find a channel name.
-      nil
-    )
+    channel_name = affiliates[c.channelNo]
 
     Channel.new(
       provider: provider,
@@ -2048,13 +2154,14 @@ def main!
     return
   end
 ensure
-  # Always attempt to persist the cache once we're done.
+  # Always attempt to persist the cache once we're done, assuming it got
+  # initialized.
   #
   # We don't have to worry about some partially-valid state since the cache
   # doesn't store entries that generate an exception during population, meaning
   # that whatever _does_ end up in the cache was at least valid enough to have
   # been generated by the code.
-  cache.persist!
+  cache.persist! unless cache.nil?
 end
 
 if __FILE__ == $0
