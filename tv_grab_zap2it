@@ -10,9 +10,6 @@ require 'set'
 require 'uri'
 
 # TODO:
-# * Handle digital/virtual channel number dichotomy, e.g.
-#   https://en.wikipedia.org/wiki/KGBS-CD, by parsing the channel variants and
-#   adding _both_ variants of the channel number to the affiliations output
 # * Allow mapping channel call sign/number combos to custom names, which take
 #   preference over any that are auto-detected
 
