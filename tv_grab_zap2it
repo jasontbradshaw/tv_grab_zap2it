@@ -51,6 +51,55 @@ WIKIPEDIA_API_HOST = 'https://en.wikipedia.org/w/api.php'
 # template's documentation.
 WIKIPEDIA_TV_STATION_AFFILIATION_TEMPLATE_TITLE = 'Infobox television station'
 
+# All the tokens we care about for use with parsing Wikitext. We don't do a
+# terribly great job at parsing, mostly only caring about the things represented
+# here in a lightweight way.
+WIKITEXT_TOKENS = [
+  # A template looks like `{{template_name|arg1 = foo|arg2 = bar}}` and is
+  # basically a function for generating other text.
+  #
+  # See
+  # https://en.wikipedia.org/wiki/Help:Wikitext#Templates_and_transcluding_pages
+  # for more information.
+  WIKITEXT_TOKEN_TEMPLATE_START = '{{',
+  WIKITEXT_TOKEN_TEMPLATE_END = '}}',
+
+  # A link forms an edge in the graph that is Wikipedia. It typically looks like
+  # `[[Some page title]]` or `[[Some page title|Some human-readable page
+  # title]]`.
+  #
+  # See https://en.wikipedia.org/wiki/Help:Wikitext#Links_and_URLs for
+  # more information.
+  WIKITEXT_TOKEN_LINK_START = '[[',
+  WIKITEXT_TOKEN_LINK_END = ']]',
+
+  # Makes text appear bolded.
+  #
+  # See https://en.wikipedia.org/wiki/Help:Wikitext#Text_formatting for more
+  # information.
+  WIKITEXT_TOKEN_BOLD = "'''",
+
+  # Generic tokens used as part of other things, like templates and links.
+  WIKITEXT_TOKEN_EQUALS = '=',
+  WIKITEXT_TOKEN_PIPE = '|',
+].freeze
+
+# A HTML/XML tag, e.g. `<ref>`.
+WIKITEXT_REGEXP_TOKENS = [
+  WIKITEXT_TOKEN_START_TAG = %r[<\s*[^/]\s*[^>]+?\s*>].freeze,
+  WIKITEXT_TOKEN_END_TAG = %r[<\s*/\s*[^>]+?\s*>].freeze,
+].freeze
+
+# A regexp that matches any one Wikitext token as its first group, useful with
+# `String#split` to obtain tokens and "regular" text.
+WIKITEXT_TOKENIZER = %r[
+  (
+    # Turn our token list into something like `a|b|c?d`
+    #{WIKITEXT_TOKENS.map { |t| Regexp.escape(t) }.join('|')}
+    | #{WIKITEXT_REGEXP_TOKENS.join('|')}
+  )
+]x.freeze
+
 # A special channel number of sorts that, when returned from affiliations
 # processing, means we don't know the exact channel number and all channels from
 # this affiliate should be treated as having the name mapped to this channel.
@@ -1343,37 +1392,9 @@ end
 def parse_station_affiliations(
   wikitext # String, in Wikitext markup format
 ) # Hash<String station number, String station name>
-  text_tokens = [
-    token_template_start = '{{',
-    token_template_end = '}}',
-    token_link_start = '[[',
-    token_link_end = ']]',
-    token_bold = "'''",
-    token_equals = '=',
-    token_pipe = '|',
-  ]
-
-  # A HTML/XML tag, e.g. `<ref>`.
-  regexp_tokens = [
-    token_start_tag = %r[<\s*[^/]\s*[^>]+?\s*>],
-    token_end_tag = %r[<\s*/\s*[^>]+?\s*>],
-  ]
-
-  # This regex groups by the tokens we're looking for, which means when we split
-  # the input text we'll receive an array that contains not only the parts
-  # _between_ the tokens, but also the tokens themselves. E.g. if we split 'axb'
-  # by 'x', we'll get `['a', 'x', 'b']` instead of `['a', 'b']`.
-  tokenizer = %r[
-    (
-      # Turn our token list into something like `a|b|c`
-      #{text_tokens.map { |t| Regexp.escape(t) }.join('|')}
-      | #{regexp_tokens.join('|')}
-    )
-  ]x
-
   # Create a token stream from our Wikitext.
   token_stream = wikitext
-    .split(tokenizer)
+    .split(WIKITEXT_TOKENIZER)
     .lazy
     .map(&:strip)
     .reject(&:empty?)
@@ -1396,15 +1417,15 @@ def parse_station_affiliations(
   # particular sequences we care about...
   # ```
   template_start_pattern = [
-    token_template_start,
+    WIKITEXT_TOKEN_TEMPLATE_START,
     WIKIPEDIA_TV_STATION_AFFILIATION_TEMPLATE_TITLE,
   ].freeze
   found_tv_template = false
 
   affiliations_start_pattern = [
-    token_pipe,
+    WIKITEXT_TOKEN_PIPE,
     'affiliations',
-    token_equals,
+    WIKITEXT_TOKEN_EQUALS,
   ].freeze
   found_affiliations = false
 
@@ -1444,7 +1465,7 @@ def parse_station_affiliations(
       # section (either the end of the parent template or we've encountered the
       # next template attribute), all the tokens we've seen make up the contents
       # of the affilations attribute and we can stop parsing.
-      if depth.zero? && [token_pipe, token_template_end].include?(token)
+      if depth.zero? && [WIKITEXT_TOKEN_PIPE, WIKITEXT_TOKEN_TEMPLATE_END].include?(token)
         # Discard the token we just matched since it has no matching "open"
         # variant since we cleared the stack when we entered the affiliations
         # attribute.
@@ -1455,14 +1476,14 @@ def parse_station_affiliations(
       # Otherwise, track the current AST depth so we'll know when to stop
       # parsing the affiliations attribute.
       case token
-        when token_template_start
+        when WIKITEXT_TOKEN_TEMPLATE_START
           depth += 1
-        when token_link_start
+        when WIKITEXT_TOKEN_LINK_START
           depth += 1
 
-        when token_template_end
+        when WIKITEXT_TOKEN_TEMPLATE_END
           depth -= 1
-        when token_link_end
+        when WIKITEXT_TOKEN_LINK_END
           depth -= 1
       end
     end
@@ -1483,9 +1504,9 @@ def parse_station_affiliations(
   # the tokens we've accumulated and turn them into a human-readable name and
   # channel number.
   ubl_template_start_pattern = [
-    token_template_start,
+    WIKITEXT_TOKEN_TEMPLATE_START,
     'ubl',
-    token_pipe,
+    WIKITEXT_TOKEN_PIPE,
   ].freeze
 
   br_tag_token = %r[^<\s*br\s*/?\s*>$]
@@ -1510,13 +1531,13 @@ def parse_station_affiliations(
       # acting as list item separators.
       *affiliation_token_stream.map do |token|
         if br_tag_token.match?(token)
-          token_pipe
+          WIKITEXT_TOKEN_PIPE
         else
           token
         end
       end,
 
-      token_template_end,
+      WIKITEXT_TOKEN_TEMPLATE_END,
     ]
   else
     # If it doesn't match either one of these, treat whatever's already there as
@@ -1526,8 +1547,8 @@ def parse_station_affiliations(
     # it a single fake channel number of `*`, which we can detect and process in
     # other methods.
     channel_number_tokens =
-      if affiliation_token_stream.count(token_bold) < 2
-        [token_bold, "#{UNKNOWN_CHANNEL_NUMBER}:", token_bold]
+      if affiliation_token_stream.count(WIKITEXT_TOKEN_BOLD) < 2
+        [WIKITEXT_TOKEN_BOLD, "#{UNKNOWN_CHANNEL_NUMBER}:", WIKITEXT_TOKEN_BOLD]
       else
         []
       end
@@ -1536,7 +1557,7 @@ def parse_station_affiliations(
       *ubl_template_start_pattern,
       *channel_number_tokens,
       *affiliation_token_stream,
-      token_template_end,
+      WIKITEXT_TOKEN_TEMPLATE_END,
     ]
   end
 
@@ -1556,14 +1577,14 @@ def parse_station_affiliations(
     affiliation_tokens << token
 
     # Skip bold text markers entirely, effectively un-bolding all bolded text.
-    if token == token_bold
+    if token == WIKITEXT_TOKEN_BOLD
       affiliation_tokens.pop
       next
     end
 
     # Skip all tags and their contents. Typically, these are `ref` tags and we
     # don't care about them.
-    if !found_tag && token_start_tag.match?(token)
+    if !found_tag && WIKITEXT_TOKEN_START_TAG.match?(token)
       affiliation_tokens.pop
       found_tag = true
       next
@@ -1573,14 +1594,14 @@ def parse_station_affiliations(
     if found_tag
       affiliation_tokens.pop
 
-      if token_end_tag.match?(token)
+      if WIKITEXT_TOKEN_END_TAG.match?(token)
         found_tag = false
       end
 
       next
     end
 
-    if !found_link && token == token_link_start
+    if !found_link && token == WIKITEXT_TOKEN_LINK_START
       found_link = true
       next
     end
@@ -1588,11 +1609,11 @@ def parse_station_affiliations(
     # "Unwrap" links to obtain only their text, if any. See
     # https://en.wikipedia.org/wiki/Help:Wikitext#Links_and_URLs for more
     # information on Wikitext link syntax.
-    if found_link && token == token_link_end
+    if found_link && token == WIKITEXT_TOKEN_LINK_END
       # Rewind the token stream to the start of the link, consuming all the
       # tokens for specific processing here.
       link_text_tokens = []
-      until link_text_tokens.last == token_link_start || affiliation_tokens.empty? do
+      until link_text_tokens.last == WIKITEXT_TOKEN_LINK_START || affiliation_tokens.empty? do
         link_text_tokens << affiliation_tokens.pop
       end
 
@@ -1604,7 +1625,7 @@ def parse_station_affiliations(
       # appropriate tokens there, explode since something is wrong.
       first_link_token = link_text_tokens.shift
       last_link_token = link_text_tokens.pop
-      if first_link_token != token_link_start && last_link_token != token_link_end
+      if first_link_token != WIKITEXT_TOKEN_LINK_START && last_link_token != WIKITEXT_TOKEN_LINK_END
         raise IOError, 'Encountered invalid Wikitext link'
       end
 
@@ -1623,13 +1644,13 @@ def parse_station_affiliations(
       #
       # In practice, we hope to only see standard and renamed links here, though
       # technically any of these is possible.
-      if link_text_tokens.include?(token_pipe)
+      if link_text_tokens.include?(WIKITEXT_TOKEN_PIPE)
         unpiped_tokens = []
         found_pipe = false
         link_text_tokens.each do |token|
           unpiped_tokens << token
 
-          if !found_pipe && token == token_pipe
+          if !found_pipe && token == WIKITEXT_TOKEN_PIPE
             unpiped_tokens.clear
             found_pipe = true
           end
@@ -1641,7 +1662,7 @@ def parse_station_affiliations(
         # `[[Foo|]]`; in this case, we use the standard link text before the
         # pipe.
         if unpiped_tokens.empty?
-          link_text_tokens.reject! { |t| t == token_pipe }
+          link_text_tokens.reject! { |t| t == WIKITEXT_TOKEN_PIPE }
         else
           link_text_tokens = unpiped_tokens
         end
@@ -1655,7 +1676,7 @@ def parse_station_affiliations(
 
     # If we find a bare pipe token or the end of the `ubl` template, this
     # indicates we've completed an item and can output it for later processing.
-    if !found_link && token == token_pipe || token == token_template_end
+    if !found_link && token == WIKITEXT_TOKEN_PIPE || token == WIKITEXT_TOKEN_TEMPLATE_END
       affiliation_tokens.pop
       raw_affiliations << affiliation_tokens.join
       affiliation_tokens.clear
