@@ -1224,7 +1224,7 @@ def fetch_station_affiliate_info(
   # certainly the page we're looking for!
   #
   # For an example query request, see
-  # https://en.wikipedia.org/w/api.php?action=query&format=json&prop=revisions&generator=allpages&formatversion=2&rvprop=content&rvslots=main&gapprefix=KADT&gaplimit=5
+  # https://en.wikipedia.org/w/api.php?action=query&format=json&prop=revisions&generator=allpages&formatversion=2&rvprop=content&rvslots=main&gapprefix=KADT&gaplimit=10
   general_call_sign = call_sign[0...4]
   general_query_response = fetch(
     WIKIPEDIA_API_HOST,
@@ -1251,7 +1251,7 @@ def fetch_station_affiliate_info(
       # number of results since if nothing shows up in the first handful, it's
       # quite unlikely that we're going to find anything relevant anyway.
       gapprefix: general_call_sign,
-      gaplimit: 5,
+      gaplimit: 10,
     },
 
     cache: cache,
@@ -1280,7 +1280,7 @@ def fetch_station_affiliate_info(
   # redirects and/or disambiguation pages.
   #
   # For an example query that contains both of these kinds of results, see
-  # https://en.wikipedia.org/w/api.php?action=query&format=json&prop=revisions&generator=allpages&formatversion=2&rvprop=content&rvslots=main&gapprefix=KADT&gaplimit=5
+  # https://en.wikipedia.org/w/api.php?action=query&format=json&prop=revisions&generator=allpages&formatversion=2&rvprop=content&rvslots=main&gapprefix=KADT&gaplimit=10
   if page_info.nil?
     # Match strings that look like they might be TV station call sign page
     # titles.
