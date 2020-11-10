@@ -9,6 +9,13 @@ require 'pathname'
 require 'set'
 require 'uri'
 
+# TODO:
+# * Handle digital/virtual channel number dichotomy, e.g.
+#   https://en.wikipedia.org/wiki/KGBS-CD, by parsing the channel variants and
+#   adding _both_ variants of the channel number to the affiliations output
+# * Allow mapping channel call sign/number combos to custom names, which take
+#   preference over any that are auto-detected
+
 # Returns the SHA-512 digest of the given stringified values.
 def digest(
   *values, # Array<any>
@@ -43,6 +50,15 @@ WIKIPEDIA_API_HOST = 'https://en.wikipedia.org/w/api.php'
 # See https://en.wikipedia.org/wiki/Template:Infobox_television_station for the
 # template's documentation.
 WIKIPEDIA_TV_STATION_AFFILIATION_TEMPLATE_TITLE = 'Infobox television station'
+
+# A special channel number of sorts that, when returned from affiliations
+# processing, means we don't know the exact channel number and all channels from
+# this affiliate should be treated as having the name mapped to this channel.
+#
+# This appears to happen mostly when a station has only a single
+# channel/affiliate and hence no ambiguity and resulting need to map the
+# station's channels to their specific affiliates.
+UNKNOWN_CHANNEL_NUMBER = '*'
 
 PROGRAM_NAME = 'tv_grab_zap2it'
 VERSION = Gem::Version.new('0.0.1').freeze
@@ -1472,14 +1488,21 @@ def parse_station_affiliations(
     token_pipe,
   ].freeze
 
-  # Sometimes, we get a "manually-constructed list" that was created with `<br>`
-  # and/or `<br />` tags instead of a "fancy" list created with the `ubl`
-  # template.
-  #
-  # When we see a manually-constructed list, we convert it into a `ubl` template
-  # so we can parse just the single format later.
   br_tag_token = %r[^<\s*br\s*/?\s*>$]
-  if affiliation_token_stream.find { |t| br_tag_token.match?(t) }
+
+  # We now attempt to detect and post-process the major affiliations attribute
+  # variants we see.
+  if affiliation_token_stream[0...ubl_template_start_pattern.length] == ubl_template_start_pattern
+    # This is the "classic" and most common by far variant where the
+    # affiliations list contains a single `ubl` template of channel numbers
+    # mapped to station names. In this case, we do nothing at all!
+  elsif affiliation_token_stream.find { |t| br_tag_token.match?(t) }
+    # Sometimes, we get a "manually-constructed list" that was created with
+    # `<br>` and/or `<br />` tags instead of a "fancy" list created with the
+    # `ubl` template.
+    #
+    # When we see a manually-constructed list, we convert it into a `ubl`
+    # template so we can parse the `ubl` format later.
     affiliation_token_stream = [
       *ubl_template_start_pattern,
 
@@ -1495,13 +1518,27 @@ def parse_station_affiliations(
 
       token_template_end,
     ]
-  end
+  else
+    # If it doesn't match either one of these, treat whatever's already there as
+    # a single list item.
 
-  # TODO:
-  # Some _other_ times, we get a single affiliation with no channel number, e.g.
-  # for `KADT`, and basically nothing else. In this case, convert it into a
-  # single-item `ubl` template with the "special" channel number `*` to
-  # represent the only affiliation we got.
+    # If it doesn't look like the affiliate text contains a channel number, give
+    # it a single fake channel number of `*`, which we can detect and process in
+    # other methods.
+    channel_number_tokens =
+      if affiliation_token_stream.count(token_bold) < 2
+        [token_bold, "#{UNKNOWN_CHANNEL_NUMBER}:", token_bold]
+      else
+        []
+      end
+
+    affiliation_token_stream = [
+      *ubl_template_start_pattern,
+      *channel_number_tokens,
+      *affiliation_token_stream,
+      token_template_end,
+    ]
+  end
 
   if affiliation_token_stream[0...ubl_template_start_pattern.length] != ubl_template_start_pattern
     return nil
@@ -1782,10 +1819,21 @@ def fetch_channels(
       cache: cache,
     ) || {}
 
+    channel_name = (
+      # Prefer the name mapped to the actual channel.
+      affiliates[c.channelNo] ||
+
+      # Failing that, use the "unknown channels number" mapping.
+      affiliates[UNKNOWN_CHANNEL_NUMBER] ||
+
+      # Failing all else, we can't find a channel name.
+      nil
+    )
+
     Channel.new(
       provider: provider,
       call_sign: c.callSign,
-      name: affiliates[c.channelNo],
+      name: channel_name,
       id: c.channelId, # TODO: Should this be `id` instead? What's the difference?
       number: c.channelNo,
       image_url: c.thumbnail,
