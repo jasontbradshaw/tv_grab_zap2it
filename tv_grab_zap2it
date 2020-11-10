@@ -1804,6 +1804,17 @@ def parse_station_affiliations(
   # anything useful from our resulting text affiliations.
   return nil unless affiliation_tokens.empty?
 
+  # If we found multiple channel numbers, we'll re-map those we _did_ find in
+  # the affiliations to their associated "parent" numbers. By looking only for
+  # channel numbers we know we have, we avoid "weirdness" of re-mapping
+  # affilations with channel numbers we don't already know about.
+  channel_numbers_matcher =
+    if channel_numbers.length < 2
+      nil
+    else
+      /^(?:#{channel_numbers.map { |n| Regexp.escape(n.to_s) }.join('|')})/
+    end
+
   # Turn the text affiliations into channel numbers and channel names.
   raw_affiliations.inject({}) do |all, raw_affiliation|
     # We expect the text we have at this point to look like:
@@ -1830,7 +1841,19 @@ def parse_station_affiliations(
     # If the name was _only_ parenthesized, it'd be a very odd name indeed!
     next all if name.empty?
 
-    all[channel] = name
+
+    if channel_numbers_matcher.nil?
+      all[channel] = name
+    else
+      channel_numbers.each do |channel_number|
+        remapped_channel_number = channel.gsub(
+          channel_numbers_matcher,
+          channel_number.to_s
+        )
+        all[remapped_channel_number] = name
+      end
+    end
+
     all
   end
 end
