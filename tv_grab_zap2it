@@ -34,6 +34,21 @@ def digest(
   hash[0...length]
 end
 
+PROGRAM_NAME = 'tv_grab_zap2it'
+VERSION = Gem::Version.new('0.0.1').freeze
+RELEASE =
+  begin
+    # Compute a truncated SHA-512 digest of the current file and use this as our
+    # release identifier. Since the entire program is in a single file, this is
+    # guaranteed to provide a unique and stable value for each "build".
+    file_data = File.read(Pathname.new(__FILE__).realpath)
+
+    digest(file_data, format: :hex, length: 8)
+  end
+
+# Compile the version information into a single string for easy use elsewhere.
+VERSION_INFO = "#{PROGRAM_NAME} v#{VERSION} (#{RELEASE})"
+
 XMLTV_DESCRIPTION = 'USA/Canada (zap2it.com)'
 XMLTV_CAPABILITIES = %w[baseline cache].freeze
 
@@ -101,21 +116,6 @@ WIKITEXT_TOKENIZER = %r[
     | #{WIKITEXT_REGEXP_TOKENS.join('|')}
   )
 ]x.freeze
-
-PROGRAM_NAME = 'tv_grab_zap2it'
-VERSION = Gem::Version.new('0.0.1').freeze
-RELEASE =
-  begin
-    # Compute a truncated SHA-512 digest of the current file and use this as our
-    # release identifier. Since the entire program is in a single file, this is
-    # guaranteed to provide a unique and stable value for each "build".
-    file_data = File.read(Pathname.new(__FILE__).realpath)
-
-    digest(file_data, format: :hex, length: 8)
-  end
-
-# Compile the version information into a single string for easy use elsewhere.
-VERSION_INFO = "#{PROGRAM_NAME} v#{VERSION} (#{RELEASE})"
 
 # Useful time constants for obtaining a number of seconds via multiplication.
 class TimeInterval
