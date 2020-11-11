@@ -177,8 +177,8 @@ class Arg
 
         # Don't add "one of" if there's only a single class to check.
         one_of_text =
-          if classes.empty?
-            ' '
+          if classes.size < 2
+            ''
           else
             'one of '
           end
@@ -282,7 +282,7 @@ class Arg
     n # Integer
   )
     self.parser do |value|
-      if value < min
+      if value < n
         raise ArgumentError, "{{ name }} of #{value.inspect} must not be less than #{n}"
       end
     end
