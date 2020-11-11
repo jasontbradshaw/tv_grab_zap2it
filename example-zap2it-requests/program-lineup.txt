@@ -1,13 +1,13 @@
 $ curl \
   --verbose \
   'https://tvlistings.zap2it.com/api/sslgrid' \
-  -d 'timespan=336' \
-  -d 'timestamp=1604599200' \
+  -d 'aid=gapzap' \
   -d 'prgsvcid=63959' \
-  -d 'headendId=lineupId' \
   -d 'countryCode=USA' \
   -d 'postalCode=78723' \
-  -d 'aid=gapzap'
+  -d 'headendId=lineupId' \
+  -d 'timespan=336' \
+  -d 'timestamp=1604599200'
 *   Trying 44.240.12.203:443...
 * Connected to tvlistings.zap2it.com (44.240.12.203) port 443 (#0)
 * ALPN, offering h2

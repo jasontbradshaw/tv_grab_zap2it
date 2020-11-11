@@ -1,11 +1,11 @@
 $ curl \
   --verbose \
   'https://tvlistings.zap2it.com/gapzap_webapi/api/program/PostEpisodeGuide' \
-  -d 'programSeriesID=SH00446173' \
-  -d 'season=9' \
-  -d 'pageSize=999' \
   -d 'pageNo=1' \
-  -d 'aid=gapzap'
+  -d 'pageSize=999' \
+  -d 'aid=gapzap' \
+  -d 'season=9' \
+  -d 'programSeriesID=SH00446173'
 *   Trying 44.240.12.203:443...
 * Connected to tvlistings.zap2it.com (44.240.12.203) port 443 (#0)
 * ALPN, offering h2
