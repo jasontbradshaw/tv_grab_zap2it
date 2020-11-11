@@ -420,6 +420,17 @@ class Provider
       .one_of(:USA, :CAN)
       .parse(country)
   end
+
+  def to_s
+    name_s =
+      if name.nil?
+        ''
+      else
+        "#{name}, "
+      end
+
+    "#{name_s}#{country} #{postal_code} (#{id})"
+  end
 end
 
 # A channel in a lineup.
@@ -507,6 +518,10 @@ class Channel
 
   def to_xml
     raise 'TODO: Implement Channel#to_xml'
+  end
+
+  def to_s
+    "#{number} #{call_sign} (#{id})"
   end
 end
 
