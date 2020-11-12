@@ -787,6 +787,8 @@ class Cache
     path = nil # Pathname | nil
   )
     @path = path
+    @is_dirty = false
+
     @cache = {}
 
     # Initialize the cache from the backing store, if given.
@@ -808,8 +810,16 @@ class Cache
     end
   end
 
+  # Returns the number of entries in the cache.
+  #
+  # Note that this count includes expired entries that haven't yet been pruned!
   def size
     @cache.size
+  end
+
+  # Returns whether the cache has been modified since being loaded.
+  def dirty?
+    @is_dirty
   end
 
   # Write the cache to the originally-configured path, if any. If no path was
@@ -818,8 +828,14 @@ class Cache
     # If we were given no path, we can't persist the cache.
     return if @path.nil?
 
+    # If we're not dirty, i.e. if the cache hasn't been modified, do nothing to
+    # save loads of time. While this will leave "dirty" entries in the cache,
+    # it's still better than having to re-persist the possibly very large cache
+    # if nothing has actually changed!
+    return unless dirty?
+
     # Remove expired values from the cache prior to dumping it so we won't waste
-    # time and/or space storing expired entries.
+    # time and space storing and serializing expired entries.
     prune!
 
     @path.open('w') do |f|
@@ -827,6 +843,10 @@ class Cache
       json_text = JSON.fast_generate(@cache, object_nl: "\n")
       f.write(json_text)
     end
+
+    # Once the cache has been persisted, it's no longer considered "dirty" since
+    # it hasn't changed since the last write to disk.
+    @is_dirty = false
 
     self
   end
@@ -836,7 +856,11 @@ class Cache
     now = Time.now
 
     @cache.each_pair do |key, entry|
-      @cache.delete(key) if entry_expired?(entry, now: now)
+      if entry_expired?(entry, now: now)
+        # Only mark the cache as dirty if something is actually pruned from it.
+        @is_dirty = true
+        @cache.delete(key)
+      end
     end
 
     self
@@ -856,6 +880,9 @@ class Cache
     if entry.nil?
       nil
     elsif entry_expired?(entry, now: now)
+      # If we're expiring an entry, we've modified the cache and it should be
+      # re-persisted.
+      @is_dirty = true
       @cache.delete(cache_key)
       nil
     else
@@ -871,6 +898,10 @@ class Cache
     ttl_seconds, # Integer
     now: Time.now # Time
   ) # typeof value
+    # Since something is being updated, mark the cache as "dirty" so we'll know
+    # to actually persist it if asked.
+    @is_dirty = true
+
     Arg
       .name('ttl_seconds')
       .is_a(Integer)
