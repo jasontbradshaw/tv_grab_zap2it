@@ -2778,7 +2778,7 @@ def display_channels(
   )
 end
 
-# Returns a string for terminal output representing the program linupe for the
+# Returns a string for terminal output representing the program lineup for the
 # given channel.
 def display_lineup(
   channels, # Channel
