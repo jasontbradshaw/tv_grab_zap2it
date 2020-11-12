@@ -763,7 +763,7 @@ end
 
 # A config-specific struct that allows for easy access to arbitrary values while
 # also providing some helper methods that we use elsewhere.
-class ConfigOpenStruct < OpenStruct
+class Config < OpenStruct
   # Require that the given configuration value be present in the parsed
   # configuration, then return it if present.
   def require(
@@ -795,8 +795,8 @@ class ConfigOpenStruct < OpenStruct
 end
 
 # A simple cache, either in-memory or backed by a file. All cached values are
-# converted to nested `OpenStruct` instances.
-class OpenStructCache
+# converted to symbolized JSON hashes/arrays.
+class Cache
   attr_reader \
     :path
 
@@ -810,24 +810,19 @@ class OpenStructCache
 
     # Initialize the cache from the backing store, if given.
     if !path.nil? && path.exist?
-      @cache = path.open('r') do |f|
-        # We load all our JSON in this method using `OpenStruct` instances in
-        # place of hashes; this makes access much more convenient!
-        #
-        # We use `JSON#parse` instead of `JSON#load` so we don't have to trust
-        # the input file we were given, which the documentation suggests we must
-        # do if using `JSON#load`.
-        JSON.parse(f.read, symbolize_names: true)
+      begin
+        @cache = path.open('r') do |f|
+          # We use `JSON#parse` instead of `JSON#load` so we don't have to trust
+          # the input file we were given, which the documentation suggests we must
+          # do if using `JSON#load`.
+          JSON.parse(f.read, symbolize_names: true)
+        end
+      rescue StandardError => err
+        raise IOError, "Unable to parse cache at #{path}: #{err}"
       end
 
       unless @cache.is_a?(Hash)
         raise IOError, "#{path} contains invalid cache file contents"
-      end
-
-      # Pre-parse all cached values so we can return them directly rather than
-      # re-parsing them on every access.
-      @cache.each do |(_, entry)|
-        entry[:value] = to_deep_openstruct(entry[:value])
       end
     end
   end
@@ -842,24 +837,25 @@ class OpenStructCache
     # If we were given no path, we can't persist the cache.
     return if @path.nil?
 
-    # Serialize all values in the cache prior to dumping them.
-    now = Time.now
-    serialized_cache = @cache.inject({}) do |all, (key, entry)|
-      # Don't serialize expired entries, effectively pruning them from the
-      # persisted cache.
-      return all if entry_expired?(entry, now: now)
-
-      # This does a shallow clone so we can then modify any remaining items
-      # ourselves.
-      new_entry = entry.dup
-      new_entry[:value] = to_deep_hash(new_entry[:value])
-
-      all[key] = new_entry
-      all
-    end
+    # Remove expired values from the cache prior to dumping it so we won't waste
+    # time and/or space storing expired entries.
+    prune!
 
     @path.open('w') do |f|
-      JSON.dump(serialized_cache, f)
+      # Since we control this, we know it's non-circular.
+      json_text = JSON.fast_generate(@cache)
+      f.write(json_text)
+    end
+
+    self
+  end
+
+  # Prunes all currently-expired entries from the cache.
+  def prune! # self
+    now = Time.now
+
+    @cache.each_pair do |key, entry|
+      @cache.delete(key) if entry_expired?(entry, now: now)
     end
 
     self
@@ -882,18 +878,18 @@ class OpenStructCache
       @cache.delete(cache_key)
       nil
     else
-      entry[:value]
+      entry.fetch(:value)
     end
   end
 
   # Adds the given key/value to the cache, overwriting any existing one. Returns
-  # the deep `OpenStruct` the value is converted into.
+  # the value.
   def set(
     cache_key, # String | Symbol,
     value, # JSON
     ttl_seconds, # Integer
     now: Time.now # Time
-  ) # OpenStruct<value>
+  ) # typeof value
     Arg
       .name('ttl_seconds')
       .is_a(Integer)
@@ -901,7 +897,6 @@ class OpenStructCache
       .parse(ttl_seconds)
     cache_key = cache_key.to_sym
 
-    value = to_deep_openstruct(value)
     @cache[cache_key] = {
       created_at: now.to_i,
       ttl_seconds: ttl_seconds,
@@ -918,7 +913,7 @@ class OpenStructCache
     cache_key, # String | Symbol
     ttl_seconds, # Integer
     &block # () => JSON
-  ) # cached value converted to a nested `OpenStruct<JSON>`
+  ) # the cached value
     Arg
       .name('ttl_seconds')
       .is_a(Integer)
@@ -938,51 +933,7 @@ class OpenStructCache
   private
 
   def entry_expired?(entry, now: Time.now)
-    now > Time.at(entry[:created_at] + entry[:ttl_seconds])
-  end
-
-  # Converts a nested JSON-ish `OpenStruct` instance into a normal hash, where
-  # all `OpenStruct` instances and hashes are replaced with symbolized hashes.
-  def to_deep_hash(
-    value # OpenStruct<JSON>, possibly nested
-  ) # Hash<Symbol, JSON>
-    if value.is_a?(OpenStruct)
-      value.to_h do |key, value|
-        [key.to_sym, to_deep_hash(value)]
-      end
-    elsif value.is_a?(Hash)
-      value.map do |key, value|
-        [key.to_sym, to_deep_hash(value)]
-      end.to_h
-    elsif value.is_a?(Array)
-      value.map { |v| to_deep_hash(v) }
-    else
-      value
-    end
-  end
-
-  # Converts a JSON-ish value into a nested `OpenStruct` instance, where all
-  # hashes and `OpenStruct` instances are replaced with `OpenStruct`s.
-  def to_deep_openstruct(
-    value # JSON-ish
-  ) # OpenStruct<JSON>, possibly nested
-    if value.is_a?(OpenStruct)
-      o = OpenStruct.new
-      value.each_pair do |k, v|
-        o[k] = to_deep_openstruct(v)
-      end
-      o
-    elsif value.is_a?(Hash)
-      o = OpenStruct.new
-      value.each do |k, v|
-        o[k] = to_deep_openstruct(v)
-      end
-      o
-    elsif value.is_a?(Array)
-      value.map { |v| to_deep_openstruct(v) }
-    else
-      value
-    end
+    now > Time.at(entry.fetch(:created_at) + entry.fetch(:ttl_seconds))
   end
 end
 
@@ -998,7 +949,7 @@ end
 def parse_config_from_args(
   args # An arguments array, typically `ARGV`.
 )
-  config = ConfigOpenStruct.new({
+  config = Config.new({
     # The `OptionParser` instance that parsed this config. This is useful so
     # whoever gets the config can inspect e.g. all the parsed arguments that
     # created it.
@@ -1021,7 +972,7 @@ def parse_config_from_args(
     return_lineup?: false,
 
     # XMLTV-specific configuration, mostly optional.
-    cache: OpenStructCache.new, # Cache, in-memory by default
+    cache: Cache.new, # Cache, in-memory by default
     day_offset: 0, # Integer
     days_to_fetch: 999_999_999, # Integer
     output_file: $stdout, # File-like
@@ -1167,7 +1118,7 @@ def parse_config_from_args(
         .path_name
         .parse(p)
 
-      config.cache = OpenStructCache.new(cache_filename)
+      config.cache = Cache.new(cache_filename)
     end
 
     ############################################################################
@@ -1269,15 +1220,15 @@ def parse_config_from_args(
 end
 
 # Makes a GET request to some host/path combination and returns the JSON
-# response converted to a deep `OpenStruct`. If the request fails or its
-# response body can't be parsed, raises an `IOError`.
+# response with symbolized keys. If the request fails or its response body can't
+# be parsed, raises an `IOError`.
 def fetch(
   *path, # Array<any>
   query: nil, # Hash<Symbol, any> | nil
   data: nil, # Hash<Symbol | String, JSON> | nil
-  cache: OpenStructCache.new, # OpenStructCache
+  cache: Cache.new, # Cache
   ttl_seconds: nil # Integer
-) # OpenStruct<JSON> | Array<OpenStruct>, both possibly nested
+) # JSON
   full_path = File.join(*path.map(&:to_s))
 
   uri =
@@ -1357,7 +1308,7 @@ def fetch(
       #
       # We correct the mistake before attempting to parse the body.
       corrected_body = res.body.gsub(/\\\\"/, '\\"')
-      JSON.parse(corrected_body)
+      JSON.parse(corrected_body, symbolize_names: true)
     rescue JSON::ParserError => err
       raise IOError, "Failed to parse HTTP response from #{uri}: #{err}"
     end
@@ -1367,21 +1318,21 @@ end
 # Retrieves the Wikitext content from the given page info with revisions if it
 # has any, otherwise returns `nil`.
 def get_page_content(
-  page_info # OpenStruct, Wikipedia page info response
+  page_info # Wikipedia page info JSON response
 ) # String | nil
   page_content_container = page_info.dig(:revisions, 0, :slots, :main)
   return nil if page_content_container.nil?
 
   # We expect only Wikitext content and fail on anything else.
-  return nil unless page_content_container.contentformat == 'text/x-wiki'
+  return nil unless page_content_container.fetch(:contentformat) == 'text/x-wiki'
 
-  page_content_container.content
+  page_content_container.fetch(:content)
 end
 
 # Parse all the links from the given page's content, if any, returning up to
 # `limit` of them (default no limit).
 def get_page_link_titles(
-  page_info, # OpenStruct, Wikipedia page info response
+  page_info, # Wikipedia page info JSON response
   limit: 999_999_999
 ) # Array<String>, possibly empty
   # Parse the page content to find links, returning them if found.
@@ -1437,7 +1388,7 @@ end
 # Returns `true` when the given page info looks like it represents a television
 # station with affiliation information, `false` otherwise.
 def does_page_contain_tv_affiliation_info(
-  page_info, # OpenStruct, Wikipedia page info response
+  page_info, # Wikipedia page info JSON response
   general_call_sign: nil # The page's call sign, ignored if not provided
 ) # Boolean
   # The page's title starts with our general call sign, if given.
@@ -1445,7 +1396,7 @@ def does_page_contain_tv_affiliation_info(
     if general_call_sign.nil?
       true
     else
-      page_info.title.start_with?(general_call_sign)
+      page_info.fetch(:title).start_with?(general_call_sign)
     end
 
   # The page content looks like it probably contains the TV station affiliation
@@ -1462,7 +1413,7 @@ end
 def fetch_station_affiliate_info(
   country, # :USA | :CAN
   call_sign, # String, something like `KABCDT1`
-  cache: OpenStructCache.new # OpenStructCache
+  cache: Cache.new # Cache
 ) # Hash<String channel number, String affiliate name> | nil
   # TODO: Support Canada as well!
   return nil unless country == :USA
@@ -1680,8 +1631,6 @@ def parse_station_infobox(
   # template ends.
   # ```
 
-  # The hash we'll fill will argument names and tokens before converting to an
-  # `OpenStruct` at the very end.
   infobox_hash = {}
 
   template_start_pattern = [
@@ -1818,9 +1767,9 @@ def parse_station_affiliations(
   # Either of these attributes can contain the information we seek, namely a
   # list of channel numbers to affiliate names. We prefer the attribute that
   # seems to most commonly contain the information, `affiliations`.
-  affiliations_tokens = infobox_attributes_to_tokens[:affiliations]
+  affiliations_tokens = infobox_attributes_to_tokens.fetch(:affiliations)
   if affiliations_tokens.nil? || affiliations_tokens.empty?
-    affiliations_tokens = infobox_attributes_to_tokens[:subchannels]
+    affiliations_tokens = infobox_attributes_to_tokens.fetch(:subchannels)
   end
 
   # If the infobox has no affiliations, we're out of luck.
@@ -2127,7 +2076,7 @@ end
 def fetch_providers(
   country, # :USA | :CAN
   postal_code, # String, e.g. `12345` or `A1A 1A1`
-  cache: OpenStructCache.new # OpenStructCache
+  cache: Cache.new # Cache
 ) # Array<Provider>
   provider_json = fetch(
     ZAP2IT_API_HOST,
@@ -2142,15 +2091,15 @@ def fetch_providers(
   )
 
   provider_json
-    .Providers
-    .sort_by { |p| [p.type, p.name] } # A human-friendly sort for display
+    .fetch(:Providers)
+    .sort_by { |p| [p.fetch(:type), p.fetch(:name)] } # A human-friendly sort for display
     .map do |p|
       Provider.new(
         country: country,
-        id: p.headendId,
-        name: p.name,
+        id: p.fetch(:headendId),
+        name: p.fetch(:name),
         postal_code: postal_code,
-        type: p.type,
+        type: p.fetch(:type),
       )
     end
 end
@@ -2161,7 +2110,7 @@ def fetch_provider(
   country, # :USA | :CAN
   postal_code, # String
   provider_id, # String
-  cache: OpenStructCache.new # OpenStructCache
+  cache: Cache.new # Cache
 ) # Provider | nil
   providers = fetch_providers(
     country,
@@ -2185,7 +2134,7 @@ def fetch_channels(
   date = Time.now, # Time, but will be truncated to its date component
   time_span_hours = 6, # 1 | 2 | 3 | 4 | 5 | 6
   channel_tokens: Set.new, # Enumerable<String>. If non-empty, channels to fetch
-  cache: OpenStructCache.new # OpenStructCache
+  cache: Cache.new # Cache
 ) # Array<Channel>
   # We need fast random access to these.
   channel_tokens = channel_tokens.to_set
@@ -2219,8 +2168,13 @@ def fetch_channels(
   # We sort by channel number for a human-friendly display and limit our
   # channels to the ones requested.
   raw_channels = lineup_json
-    .channels
-    .sort_by { |c| [(Float(c.channelNo) rescue c.channelNo), c.callSign] }
+    .fetch(:channels)
+    .sort_by do |c|
+      [
+        (Float(c.fetch(:channelNo)) rescue c.fetch(:channelNo)),
+        c.fetch(:callSign),
+      ]
+    end
     .select do |c|
       (
         # If we weren't given any channels to which to limit our fetch, keep all
@@ -2229,9 +2183,9 @@ def fetch_channels(
 
         # Otherwise, keep only channels that have an identifier that matches one
         # of the given tokens.
-        channel_tokens.include?(c.channelId) ||
-        channel_tokens.include?(c.callSign) ||
-        channel_tokens.include?(c.channelNo)
+        channel_tokens.include?(c.fetch(:channelId)) ||
+        channel_tokens.include?(c.fetch(:callSign)) ||
+        channel_tokens.include?(c.fetch(:channelNo))
       )
     end
 
@@ -2248,19 +2202,19 @@ def fetch_channels(
   raw_channels.map do |c|
     affiliates = fetch_station_affiliate_info(
       provider.country,
-      c.callSign,
+      c.fetch(:callSign),
       cache: cache,
     ) || {}
 
-    channel_name = affiliates[c.channelNo]
+    channel_name = affiliates[c.fetch(:channelNo)]
 
     Channel.new(
       provider: provider,
-      call_sign: c.callSign,
+      call_sign: c.fetch(:callSign),
       name: channel_name,
-      id: c.channelId, # TODO: Should this be `id` instead? What's the difference?
-      number: c.channelNo,
-      image_url: c.thumbnail,
+      id: c.fetch(:channelId),
+      number: c.fetch(:channelNo),
+      image_url: c.fetch(:thumbnail),
     )
   end
 end
@@ -2272,7 +2226,7 @@ def fetch_channel(
   token, # String, one of a channel call sign, number, or id
   date = Time.now, # Time, but will be truncated to its date component
   time_span_hours = 6, # 1 | 2 | 3 | 4 | 5 | 6
-  cache: OpenStructCache.new # OpenStructCache
+  cache: Cache.new # Cache
 ) # Channel | nil
   channels = fetch_channels(
     provider,
@@ -2318,8 +2272,8 @@ def fetch_program_details(
   series_id, # String, the `seriesId` value fetched from lineup program info
   program_id, # String, the `tmsId` fetched from lineup program info
   season_index: nil, # Integer, one-based, the season to fetch. `nil` means "latest season", 1 means "first season", etc.
-  cache: OpenStructCache.new # OpenStructCache
-) # OpenStruct<any> program details
+  cache: Cache.new # Cache
+) # JSON program details
   Arg
     .name('series_id')
     .is_a(String)
@@ -2384,9 +2338,9 @@ def fetch_program_details(
   )
 
   episodes_info = season_info
-    .episodeGuideTab
-    .season
-    .episodes
+    .fetch(:episodeGuideTab)
+    .fetch(:season)
+    .fetch(:episodes)
 
   # See if this response contained the episode information we're looking for.
   #
@@ -2399,7 +2353,7 @@ def fetch_program_details(
   id_munge_prefix_regex = /^(SH|EP)/i
   munged_query_episode_id = program_id.gsub(id_munge_prefix_regex, '')
   episode_details = episodes_info.find do |episode_info|
-    munged_candidate_episode_id = episode_info.tmsID.gsub(id_munge_prefix_regex, '')
+    munged_candidate_episode_id = episode_info.fetch(:tmsID).gsub(id_munge_prefix_regex, '')
     munged_candidate_episode_id == munged_query_episode_id
   end
 
@@ -2407,8 +2361,8 @@ def fetch_program_details(
   # to the next season until we either find our episode or run out of seasons.
   if episode_details.nil?
     potential_season_indices = season_info
-      .episodeGuideTab
-      .seasons
+      .fetch(:episodeGuideTab)
+      .fetch(:seasons)
       .map { |s| s.to_i(10) } # We expect all seasons to be string integers
       .sort
       .reverse
@@ -2449,7 +2403,7 @@ def fetch_program_details(
   # We found our desired episode details and can parse them!
 
   # Can be the empty string when a rating is (presumably) unknown.
-  display_rating = episode_details.displayRating
+  display_rating = episode_details.fetch(:displayRating)
   rating =
     if display_rating.nil? || display_rating.empty?
       nil
@@ -2461,14 +2415,16 @@ def fetch_program_details(
   # an original air date of `1000-01-01`, whereas TV show episodes have an
   # accurate original air date but an empty string release year. We'll also
   # occasionally get neither!
+  raw_release_year = episode_details.fetch(:releaseYear, '')
+  raw_original_air_date = episode_details.fetch(:originalAirDate, '')
   original_release_date =
-    if !episode_details.releaseYear.empty?
+    if !raw_release_year.empty?
       # We use the first of the year as a dummy day since having a release year
       # almost certainly means we're dealing with a movie for which we _only_
       # have a year anyway.
-      Date.parse("#{episode_details.releaseYear}-01-01").to_time
-    elsif !episode_details.originalAirDate.empty?
-      Date.parse(episode_details.originalAirDate).to_time
+      Date.parse("#{raw_release_year}-01-01").to_time
+    elsif !raw_original_air_date.empty?
+      Date.parse(raw_original_air_date).to_time
     else
       # This is the typical "dummy date" we see in the API responses, so we use
       # it for parity.
@@ -2479,49 +2435,56 @@ def fetch_program_details(
   # `nil` to clearly indicate as much.
   original_release_date = nil if original_release_date.year < 1500
 
-  title = episode_details.episodeTitle.strip
+  title = episode_details.fetch(:episodeTitle).strip
   title = nil if title.empty?
 
-  description = episode_details.synopsis.strip
+  description = episode_details.fetch(:synopsis).strip
   description = nil if description.empty?
 
   # A season of zero appears to indicate some sort of dummy, placeholder season
   # most (all?) of the time and hence should act as if it's not present at all.
-  season = episode_details.seasonNumber.to_i(10)
+  # If present, these are 1-based, though "special" episodes (e.g. clip shows or
+  # series retrospectives) might get an episode number of `0`.
+  season = episode_details.fetch(:seasonNumber, '-1').to_i(10)
   season = nil if season <= 0
 
-  episode = episode_details.episodeNumber.to_i(10)
+  episode = episode_details.fetch(:episodeNumber, '-1').to_i(10)
   episode = nil if episode < 0
 
-  OpenStruct.new({
-    # Use the id we were given since it may differ from the munged one the
-    # episode info contains.
-    program_id: program_id,
+  tags = episode_details
+    .fetch(:tags)
+    .split('|')
+    .map(&:strip)
+    .reject(&:empty?)
 
-    # These are 1-based, though "special" episodes (e.g. clip shows or series
-    # retrospectives) might get an episode number of `0`.
+  genres = episode_details
+    .fetch(:programGenres)
+    .split('|')
+    .map(&:strip)
+    .reject(&:empty?)
+
+  is_new = episode_details.fetch(:isNew)
+  is_live = episode_details.fetch(:isLive)
+  is_premier = episode_details.fetch(:isPremier)
+  is_finale = episode_details.fetch(:isFinale)
+
+  {
+    # We use the id we were given since it may differ from the munged one the
+    # episode info contains; we'll treat the input id as the canonical one.
+    program_id: program_id,
     season: season,
     episode: episode,
-
     title: title,
     description: description,
     original_release_date: original_release_date,
     rating: rating,
-    tags: episode_details
-      .tags
-      .split('|')
-      .map(&:strip)
-      .reject(&:empty?),
-    genres: episode_details
-      .programGenres
-      .split('|')
-      .map(&:strip)
-      .reject(&:empty?),
-    new?: episode_details.isNew,
-    live?: episode_details.isLive,
-    premier?: episode_details.isPremier,
-    finale?: episode_details.isFinale,
-  })
+    tags: tags,
+    genres: genres,
+    new?: is_new,
+    live?: is_live,
+    premier?: is_premier,
+    finale?: is_finale,
+  }
 end
 
 # Downloads and returns all the program data for the given date, if possible.
@@ -2529,7 +2492,7 @@ def fetch_lineup(
   channel, # Channel
   start_date = Time.now, # Time, but will be truncated to its date component
   days_to_fetch: 999_999_999, # The maximum number of days of data to fetch
-  cache: OpenStructCache.new # OpenStructCache
+  cache: Cache.new # Cache
 )
   # First, we check the cache for any existing data for the given date. This is
   # necessary since every request to the API contains 14 days of data, however
@@ -2610,7 +2573,7 @@ def fetch_lineup(
         raise IOError, "Unexepectedly found an empty lineup for channel #{channel}"
       end
 
-      first_program_time = Time.at(first_program_info.progDateUnix)
+      first_program_time = Time.at(first_program_info.fetch(:progDateUnix))
 
       # Update the cache with the information for this date alone, allowing it
       # to be accessed separately from the other lineups from the API request
@@ -2628,44 +2591,45 @@ def fetch_lineup(
   end
 
   lineup_data.map do |basic_program_info|
-    series_id = basic_program_info.seriesId
-    program_id = basic_program_info.program.tmsId
+    series_id = basic_program_info.fetch(:seriesId)
+    program_id = basic_program_info.fetch(:program).fetch(:tmsId)
 
     # First, grab whatever information we can from the program info we already
     # have. This often isn't complete, but if we can't fetch any more details
     # than this we'll have to make due with all that we got.
-    start_time = Time.at(basic_program_info.startTime)
-    end_time = Time.at(basic_program_info.endTime)
+    start_time = Time.at(basic_program_info.fetch(:startTime))
+    end_time = Time.at(basic_program_info.fetch(:endTime))
 
-    title = basic_program_info.program.title
-    secondary_title =  basic_program_info.program.episodeTitle
-    description = basic_program_info.program.shortDesc
-    image_url = "https://zap2it.tmsimg.com/assets/#{basic_program_info.thumbnail}.jpg"
+    title = basic_program_info.fetch(:program).fetch(:title)
+    secondary_title =  basic_program_info.fetch(:program).fetch(:episodeTitle)
+    description = basic_program_info.fetch(:program).fetch(:shortDesc)
+    image_url = "https://zap2it.tmsimg.com/assets/#{basic_program_info.fetch(:thumbnail)}.jpg"
 
     # Season and episode come in as either `nil` or a string integer.
-    season = basic_program_info.program.season
+    season = basic_program_info.fetch(:program).fetch(:season)
     season = season.to_i(10) unless season.nil?
-    episode = basic_program_info.program.episode
+    episode = basic_program_info.fetch(:program).fetch(:episode)
     episode = episode.to_i(10) unless episode.nil?
 
-    rating = basic_program_info.rating
+    rating = basic_program_info.fetch(:rating)
 
     # These don't show up at all in the basic info :(
     genres = []
 
+    raw_release_year = basic_program_info.fetch(:program).fetch(:releaseYear)
     original_release_date =
-      if basic_program_info.program.releaseYear.nil?
+      if raw_release_year.nil?
         nil
       else
-        Date.parse("#{basic_program_info.program.releaseYear.rjust(4, '0')}-01-01").to_time
+        Date.parse("#{raw_release_year.rjust(4, '0')}-01-01").to_time
       end
 
     # Movies have series ids that start with `MV`!
-    is_movie = /^MV/i.match?(basic_program_info.seriesId)
+    is_movie = /^MV/i.match?(basic_program_info.fetch(:seriesId))
 
     # Generic comes in as `"0"` or `"1"` and appears to indicate things like
     # "paid programming".
-    is_generic = basic_program_info.program.isGeneric == '1'
+    is_generic = basic_program_info.fetch(:program).fetch(:isGeneric) == '1'
 
     # These "bits" are special in that in the basic info they come back as tags,
     # but in the enhanced info they come back as their own individual flags. We
@@ -2680,10 +2644,10 @@ def fetch_lineup(
       premier_tag = 'Premier',
       finale_tag = 'Finale',
     ]
-    is_new = basic_program_info.tag.include?(new_tag)
-    is_live = basic_program_info.tag.include?(live_tag)
-    is_premier = basic_program_info.tag.include?(premier_tag)
-    is_finale = basic_program_info.tag.include?(finale_tag)
+    is_new = basic_program_info.fetch(:tag).include?(new_tag)
+    is_live = basic_program_info.fetch(:tag).include?(live_tag)
+    is_premier = basic_program_info.fetch(:tag).include?(premier_tag)
+    is_finale = basic_program_info.fetch(:tag).include?(finale_tag)
 
     # Omit any of the "special" tags we just checked for since they're redundant
     # if included in both places.
@@ -2692,7 +2656,7 @@ def fetch_lineup(
     # _better_ than the tags we get from the enhanced info! The "enhanced" tags
     # come in something like `STEREO|CC` and have to be manually cleaned, so we
     # prefer the "basic" tags instead.
-    tags = (basic_program_info.tags || []).reject { |t| flag_tags.include?(t) }
+    tags = (basic_program_info.fetch(:tags, [])).reject { |t| flag_tags.include?(t) }
 
     # Now, fetch detailed program info if possible and improve what we've
     # already gathers.
@@ -2700,34 +2664,34 @@ def fetch_lineup(
     unless enhanced_program_info.nil?
       # We prefer the detailed version of this data if available, otherwise we
       # fall back to the "basic" version
-      season = enhanced_program_info.season || season
-      episode = enhanced_program_info.episode || episode
+      season = enhanced_program_info.fetch(:season, season)
+      episode = enhanced_program_info.fetch(:episode, episode)
 
       # We "merge" these basic values with the enhanced ones.
-      is_new = is_new || enhanced_program_info.new?
-      is_live = is_live || enhanced_program_info.live?
-      is_premier = is_premier || enhanced_program_info.premier?
-      is_finale = is_finale || enhanced_program_info.finale?
+      is_new = is_new || enhanced_program_info.fetch(:new?)
+      is_live = is_live || enhanced_program_info.fetch(:live?)
+      is_premier = is_premier || enhanced_program_info.fetch(:premier?)
+      is_finale = is_finale || enhanced_program_info.fetch(:finale?)
 
       # If any of these values seem to be more "substantial" than the ones we
       # got from the basic info, we'll use them instead.
-      secondary_title = secondary_title || enhanced_program_info.title
-      if (enhanced_program_info.title || '').length > (secondary_title || '').length
-        secondary_title = enhanced_program_info.title
+      secondary_title = secondary_title || enhanced_program_info.fetch(:title)
+      if (enhanced_program_info.fetch(:title) || '').length > (secondary_title || '').length
+        secondary_title = enhanced_program_info.fetch(:title)
       end
 
-      description = description || enhanced_program_info.description
-      if (enhanced_program_info.description || '').length > (description || '').length
-        description = enhanced_program_info.description
+      description = description || enhanced_program_info.fetch(:description)
+      if (enhanced_program_info.fetch(:description) || '').length > (description || '').length
+        description = enhanced_program_info.fetch(:description)
       end
 
       # For these, we prefer the "enhanced" version wherever available.
-      original_release_date = enhanced_program_info.original_release_date || original_release_date
-      rating = enhanced_program_info.rating || rating
+      original_release_date = enhanced_program_info.fetch(:original_release_date, original_release_date)
+      rating = enhanced_program_info.fetch(:rating, rating)
 
       # These don't show up at all in the "basic" info, so we _must_ use those
       # that come back from the enhanced info.
-      genres = enhanced_program_info.genres
+      genres = enhanced_program_info.fetch(:genres)
     end
 
     Program.new(
@@ -2800,7 +2764,7 @@ end
 def display_providers(
   country, # :USA | :CAN
   postal_code, # String
-  cache: OpenStructCache.new # OpenStructCache
+  cache: Cache.new # Cache
 ) # String
   providers = fetch_providers(
     country,
@@ -2819,7 +2783,7 @@ end
 def display_channels(
   provider, # Provider
   channel_tokens: Set.new, # Enumerable<String> | nil. If non-empty, channels to display
-  cache: OpenStructCache.new # OpenStructCache
+  cache: Cache.new # Cache
 ) # String
   channels = fetch_channels(
     provider,
@@ -2839,7 +2803,7 @@ def display_lineup(
   channels, # Channel
   start_date = Time.now, # Time, inclusive, but will be truncated to its date component
   end_date = start_date + TimeInterval.DAYS, # Time, exclusive, but will be truncated to its date component
-  cache: OpenStructCache.new # OpenStructCache
+  cache: Cache.new # Cache
 )
   programs = channels.flat_map do |channel|
     fetch_lineup(
