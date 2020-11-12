@@ -2503,7 +2503,7 @@ end
 def fetch_lineup(
   channel, # Channel
   start_date = Time.now, # Time, but will be truncated to its date component
-  days_to_fetch: 999_999_999, # The maximum number of days of data to fetch
+  end_date = start_date + TimeInterval::DAYS, # Time, but will be truncated to its date component
   cache: Cache.new # Cache
 )
   # First, we check the cache for any existing data for the given date. This is
@@ -2924,6 +2924,7 @@ def main!
     country = config.require(:country)
     postal_code = config.require(:postal_code)
     provider_id = config.require(:provider_id)
+    days_to_fetch = config.require(:days_to_fetch, 'number of days to fetch')
 
     provider = fetch_provider(
       country,
@@ -2948,7 +2949,7 @@ def main!
     output = display_lineup(
       channels,
       now,
-      now + TimeInterval::DAYS,
+      now + (days_to_fetch * TimeInterval::DAYS),
       cache: cache,
     )
     $output.puts(output)
