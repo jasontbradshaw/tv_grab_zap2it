@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
+require 'date'
 require 'digest'
 require 'json'
 require 'net/http'
@@ -278,6 +279,12 @@ class Arg
     end
   end
 
+  def time
+    self.is_a(Integer).parser do |value|
+      Time.at(value)
+    end
+  end
+
   def min(
     n # Integer
   )
@@ -548,32 +555,206 @@ end
 class Program
   attr_reader \
     :channel,
+    :series_id,
+    :program_id,
     :start_time,
-    :stop_time,
-    :episode_numbers,
+    :end_time,
+    :season,
+    :episode,
     :title,
     :secondary_title,
     :description,
     :image_url,
     :previously_shown_time,
     :rating,
-    :categories
+    :tags,
+    :genres,
+    :original_release_date,
+    :is_movie
 
   def initialize(
     channel: nil, # Channel
-    start_time: nil, # Time, inclusive
-    stop_time: nil, # Time, exclusive
-    episode_numbers: nil, # Array<EpisodeNumber>
+    series_id: nil, # String
+    program_id: nil, # String
+    start_time: nil, # Time
+    end_time: nil, # Time
+    season: nil, # Integer | nil
+    episode: nil, # Integer | nil
     title: nil, # String
     secondary_title: nil, # String | nil
-    description: nil, # String
-    image_url: nil, # URI
-    previously_shown_time: nil, # Time | nil
-    rating: nil, # Rating | nil
-    categories: nil # Set<String>
+    description: nil, # String | nil
+    image_url: nil, # String
+    previously_shown_time: nil, # String | nil
+    rating: nil, # String | nil
+    tags: nil, # Array<String>
+    genres: nil, # Array<String>
+    original_release_date: nil, # Time | nil
+    is_movie: nil, # Boolean
+    is_new: nil, # Boolean
+    is_live: nil, # Boolean
+    is_premier: nil, # Boolean
+    is_finale: nil, # Boolean
+    is_generic: nil # Boolean
   )
-    raise 'TODO: Implement Program'
+    @channel = Arg
+      .name('channel')
+      .is_a(Channel)
+      .parse(channel)
+
+    @series_id = Arg
+      .name('series_id')
+      .is_a(String)
+      .strip
+      .non_empty
+      .parse(series_id)
+
+    @program_id = Arg
+      .name('program_id')
+      .is_a(String)
+      .strip
+      .non_empty
+      .parse(program_id)
+
+    @start_time = Arg
+      .name('start_time')
+      .is_a(Time)
+      .parse(start_time)
+
+    @end_time = Arg
+      .name('end_time')
+      .is_a(Time)
+      .parser do |t|
+        unless t > @start_time
+          raise ArgumentError, '{{ name }} must be later than start_time'
+        end
+        t
+      end
+      .parse(end_time)
+
+    unless season.nil?
+      @season = Arg
+        .name('season')
+        .is_a(Integer)
+        .min(1)
+        .parse(season)
+    end
+
+    unless episode.nil?
+      @episode = Arg
+        .name('episode')
+        .is_a(Integer)
+        .min(0) # We allow zero since this can indicate "special" episodes.
+        .parse(episode)
+    end
+
+    @title = Arg
+      .name('title')
+      .is_a(String)
+      .strip
+      .non_empty
+      .parse(title)
+
+    @secondary_title =
+      unless secondary_title.nil?
+        Arg
+          .name('secondary_title')
+          .is_a(String)
+          .strip
+          .non_empty
+          .parse(secondary_title)
+      end
+
+    unless @description.nil?
+      @description = Arg
+        .name('description')
+        .is_a(String)
+        .strip
+        .non_empty
+        .parse(description)
+    end
+
+    @image_url = Arg
+      .name('image_url')
+      .non_nil
+      .is_a(String)
+      .strip
+      .uri
+      .parse(image_url)
+
+    @previously_shown_time =
+      unless previously_shown_time.nil?
+        Arg
+          .name('previously_shown_time')
+          .is_a(Time)
+          .parse(previously_shown_time)
+      end
+
+    @rating =
+      unless rating.nil?
+        Arg
+          .name('rating')
+          .is_a(String)
+          .strip
+          .non_empty
+          .parse(rating)
+      end
+
+    unless original_release_date.nil?
+      @original_release_date = Arg
+        .name('original_release_date')
+        .is_a(Time)
+        .parse(original_release_date)
+    end
+
+    @is_movie = Arg
+      .name('is_movie')
+      .one_of(true, false)
+      .parse(is_movie)
+
+    @is_new = Arg
+      .name('is_new')
+      .one_of(true, false)
+      .parse(is_new)
+
+    @is_live = Arg
+      .name('is_live')
+      .one_of(true, false)
+      .parse(is_live)
+
+    @is_premier = Arg
+      .name('is_premier')
+      .one_of(true, false)
+      .parse(is_premier)
+
+    @is_finale = Arg
+      .name('is_finale')
+      .one_of(true, false)
+      .parse(is_finale)
+
+    @is_generic = Arg
+      .name('is_generic')
+      .one_of(true, false)
+      .parse(is_generic)
+
+    # TODO: Validate these more thoroughly!
+    @tags = Arg
+      .name('tags')
+      .is_a(Array)
+      .parse(tags)
+
+    # TODO: Validate these more thoroughly!
+    @genres = Arg
+      .name('genres')
+      .is_a(Array)
+      .parse(genres)
   end
+
+  def movie?; @is_movie; end
+  def new?; @is_new; end
+  def live?; @is_live; end
+  def premier?; @is_premier; end
+  def finale?; @is_finale; end
+  def generic?; @is_generic; end
 
   def to_xml
     raise 'TODO: Implement Program#to_xml'
@@ -684,55 +865,80 @@ class OpenStructCache
     self
   end
 
-  # Load a JSON value from the cache. If no value is found, the given block is
-  # run and the resulting value is stored in the cache before being returned.
-  def lookup(
+  # Retrieves the given key from the cache if present, returning `nil` if not
+  # present.
+  def get(
     cache_key, # String | Symbol
-    ttl_seconds: 0, # Integer
-    &block # () => JSON
-  ) # cached value converted to a nested `OpenStruct<JSON>`
+    now: Time.now # Time
+  )
     cache_key = cache_key.to_sym
 
-    now = Time.now
-    cache_entry =
-      if @cache.include?(cache_key)
-        entry = @cache[cache_key]
-
-        # If the entry has expired, delete it from the cache entirely; we'll
-        # create a new entry later if we can.
-        if entry_expired?(entry, now: now)
-          @cache.delete(cache_key)
-          nil
-        else
-          entry
-        end
-      else
-        nil
-      end
-
-    # If no entry was cached or the cached entry has expired, create a new entry
-    # and add it to the cache.
-    if cache_entry.nil?
-      value = to_deep_openstruct(yield)
-      cache_entry = {
-        created_at: now.to_i,
-        ttl_seconds: ttl_seconds,
-        value: value
-      }
-
-      # Only add an entry to the cache if it makes sense to do so!
-      if ttl_seconds > 0
-        @cache[cache_key] = cache_entry
-      end
+    # If the entry has expired, delete it from the cache entirely and return
+    # `nil`.
+    entry = @cache[cache_key]
+    if entry.nil?
+      nil
+    elsif entry_expired?(entry, now: now)
+      @cache.delete(cache_key)
+      nil
+    else
+      entry[:value]
     end
+  end
 
-    cache_entry[:value]
+  # Adds the given key/value to the cache, overwriting any existing one. Returns
+  # the deep `OpenStruct` the value is converted into.
+  def set(
+    cache_key, # String | Symbol,
+    value, # JSON
+    ttl_seconds, # Integer
+    now: Time.now # Time
+  ) # OpenStruct<value>
+    Arg
+      .name('ttl_seconds')
+      .is_a(Integer)
+      .min(1)
+      .parse(ttl_seconds)
+    cache_key = cache_key.to_sym
+
+    value = to_deep_openstruct(value)
+    @cache[cache_key] = {
+      created_at: now.to_i,
+      ttl_seconds: ttl_seconds,
+      value: value
+    }
+
+    value
+  end
+
+  # Load a JSON value from the cache. If no value is found, the given block is
+  # run and the resulting value is stored in the cache under the given key
+  # before being returned.
+  def fetch(
+    cache_key, # String | Symbol
+    ttl_seconds, # Integer
+    &block # () => JSON
+  ) # cached value converted to a nested `OpenStruct<JSON>`
+    Arg
+      .name('ttl_seconds')
+      .is_a(Integer)
+      .min(1)
+      .parse(ttl_seconds)
+
+    # Return the value directly if it's already cached.
+    now = Time.now
+    value = get(cache_key, now: now)
+    return value unless value.nil?
+
+    # If not already cached, run the block and set the cache to the new value,
+    # then return the new value.
+    set(cache_key, yield, ttl_seconds, now: now)
   end
 
   private
 
   def entry_expired?(entry, now: Time.now)
-    now > Time.new(entry[:created_at] + entry[:ttl_seconds])
+    now > Time.at(entry[:created_at] + entry[:ttl_seconds])
   end
 
   # Converts a nested JSON-ish `OpenStruct` instance into a normal hash, where
@@ -784,7 +990,7 @@ end
 def truncate_time(
   time, # Time
   unit # Integer seconds, e.g. 3600 for an hour or 86400 for a day
-)
+) # Time
   time - (time.to_i % unit)
 end
 
@@ -810,8 +1016,9 @@ def parse_config_from_args(
     return_description?: false,
 
     # Program-specific
-    return_channels?: false,
     return_providers?: false,
+    return_channels?: false,
+    return_lineup?: false,
 
     # XMLTV-specific configuration, mostly optional.
     cache: OpenStructCache.new, # Cache, in-memory by default
@@ -1041,6 +1248,14 @@ def parse_config_from_args(
         .reject(&:empty?) # Remove empty strings
         .to_set
     end
+
+    show_lineup_flag = '--show-lineup'
+    opts.on(
+      show_lineup_flag,
+      "Output the program lineup(s) for the given #{channels_flag} values.",
+    ) do
+      config[:return_lineup?] = true
+    end
   end
 
   # It's useful for external things to have access to this at times, e.g. for
@@ -1061,7 +1276,7 @@ def fetch(
   query: nil, # Hash<Symbol, any> | nil
   data: nil, # Hash<Symbol | String, JSON> | nil
   cache: OpenStructCache.new, # OpenStructCache
-  ttl_seconds: 0 # Integer
+  ttl_seconds: nil # Integer
 ) # OpenStruct<JSON> | Array<OpenStruct>, both possibly nested
   full_path = File.join(*path.map(&:to_s))
 
@@ -1085,7 +1300,7 @@ def fetch(
     length: 32
   )
 
-  cache.lookup(cache_key, ttl_seconds: ttl_seconds) do
+  cache.fetch(cache_key, ttl_seconds) do
     # Don't allow things to take too long since we might be making a lot of
     # requests.
     timeout = 15 * TimeInterval::SECONDS
@@ -1100,9 +1315,18 @@ def fetch(
         ssl_timeout: timeout,
       ) do |http|
         method = data.nil? ? :GET : :POST
-        http.send_request(method, uri.request_uri, data, {
-          'User-Agent' => VERSION_INFO
-        })
+        body_data =
+          if data.nil?
+            nil
+          else
+            URI.encode_www_form(data)
+          end
+        http.send_request(
+          method,
+          uri.request_uri,
+          body_data,
+          { 'User-Agent' => VERSION_INFO }
+        )
       end
 
     unless res.is_a?(Net::HTTPSuccess)
@@ -1591,10 +1815,16 @@ end
 def parse_station_affiliations(
   infobox_attributes_to_tokens # Hash<Symbol parameter name, Array<String Wikitext tokens>>
 ) # Hash<String station number, String station name> | nil
+  # Either of these attributes can contain the information we seek, namely a
+  # list of channel numbers to affiliate names. We prefer the attribute that
+  # seems to most commonly contain the information, `affiliations`.
   affiliations_tokens = infobox_attributes_to_tokens[:affiliations]
+  if affiliations_tokens.nil? || affiliations_tokens.empty?
+    affiliations_tokens = infobox_attributes_to_tokens[:subchannels]
+  end
 
   # If the infobox has no affiliations, we're out of luck.
-  return nil if affiliations_tokens.nil?
+  return nil if affiliations_tokens.nil? || affiliations_tokens.empty?
 
   # Affiliations infoboxes don't seem to have a "standard" channel number by
   # which they list their affiliations. E.g., a station may operate under
@@ -1908,7 +2138,7 @@ def fetch_providers(
 
     # This response is expected to change very infrequently, if ever.
     cache: cache,
-    ttl_seconds: 1 * TimeInterval::WEEKS,
+    ttl_seconds: TimeInterval::WEEKS,
   )
 
   provider_json
@@ -2005,6 +2235,16 @@ def fetch_channels(
       )
     end
 
+  # If we got no channels after filtering things down, clearly tell the user
+  # what happened.
+  if raw_channels.empty?
+    channel_tokens_string = channel_tokens
+      .to_a
+      .sort
+      .join(', ')
+    raise ArgumentError, "Could not find any channels matching these tokens: #{channel_tokens_string}"
+  end
+
   raw_channels.map do |c|
     affiliates = fetch_station_affiliate_info(
       provider.country,
@@ -2050,14 +2290,473 @@ def fetch_channel(
   end
 end
 
-# Downloads and returns all the data for the given date, if possible.
+def get_lineup_date_cache_key(
+  channel, # Channel
+  start_time # Time, but will be truncated to its date
+) # String
+  digest(
+    # These are the same values as required by the actual API request, so we use
+    # them for symmetry.
+    channel.id,
+    channel.provider.country,
+    channel.provider.postal_code,
+    channel.provider.id,
+
+    # The date string for which we want to find guide data.
+    #
+    # We use our own to ensure that the cached date is always consistent,
+    # regardless of what/how the zap2it API decides to return the date keys for
+    # the lineup. Mainly, this is guarding against zap2it returning something
+    # like `2020-1-1` instead of `2020-01-01`.
+    truncate_time(start_time, TimeInterval::DAYS).strftime('%Y-%m-%d'),
+  )
+end
+
+# Attempts to fetch and return detailed program information for the given
+# program/series combination. This works for both movies _and_ televsion shows!
+def fetch_program_details(
+  series_id, # String, the `seriesId` value fetched from lineup program info
+  program_id, # String, the `tmsId` fetched from lineup program info
+  season_index: nil, # Integer, one-based, the season to fetch. `nil` means "latest season", 1 means "first season", etc.
+  cache: OpenStructCache.new # OpenStructCache
+) # OpenStruct<any> program details
+  Arg
+    .name('series_id')
+    .is_a(String)
+    .non_empty
+    .parse(series_id)
+  Arg
+    .name('program_id')
+    .is_a(String)
+    .non_empty
+    .parse(program_id)
+  unless season_index.nil?
+    Arg
+      .name('season_index')
+      .is_a(Integer)
+      .min(1)
+      .parse(season_index)
+  end
+
+  # The API only allows us to look up detailed information for a whole season at
+  # a time. Since we often don't even know which season a particular episode
+  # came from since the initial API call returns null, we instead always start
+  # by fetching the latest season, then walking the season list backwards until
+  # we find the episode we're looking for.
+  #
+  # We fetch from latest to earliest under the assumption that most often newer
+  # episodes are aired in preference to older ones.
+
+  # When fetching the latest season, we don't cache the result for very long.
+  # This ensures that unfinished seasons are re-checked regularly, but "old"
+  # seasons are cached for a good long time since presumably they won't change
+  # very often at all!
+  ttl_seconds =
+    if season_index.nil?
+      TimeInterval::DAYS
+    else
+      90 * TimeInterval::DAYS
+    end
+
+  # TODO: "Local programming" (and presumably other things) have a series id but
+  # making this request doesn't return anything _at all_, i.e. returns zero
+  # bytes, when we attempt to fetch it. Deal with this!
+  season_info = fetch(
+    ZAP2IT_API_HOST,
+    '/gapzap_webapi/api/program/PostEpisodeGuide',
+
+    data: {
+      # A magical required value!
+      aid: :gapzap,
+
+      # Essentially, "fetch all the data in a single page". This seems to work
+      # without issue in all attempted cases, so... we don't have to paginate!
+      pageNo: 1,
+      pageSize: 999,
+
+      # Fetch the series/season we care about right now.
+      programSeriesID: series_id,
+      season: season_index || -1, # Convert `nil` to `-1` for "latest season"
+    },
+
+    cache: cache,
+    ttl_seconds: ttl_seconds,
+  )
+
+  episodes_info = season_info
+    .episodeGuideTab
+    .season
+    .episodes
+
+  # See if this response contained the episode information we're looking for.
+  #
+  # The `tmsId` value we get in `program_id` is prefixed with `SH` or `sh`
+  # coming from the program guide, but is listed as `ep` in the season
+  # details...
+  #
+  # We munge during the comparison with the program details episode id to
+  # account for this and any general variation on it.
+  id_munge_prefix_regex = /^(SH|EP)/i
+  munged_query_episode_id = program_id.gsub(id_munge_prefix_regex, '')
+  episode_details = episodes_info.find do |episode_info|
+    munged_candidate_episode_id = episode_info.tmsID.gsub(id_munge_prefix_regex, '')
+    munged_candidate_episode_id == munged_query_episode_id
+  end
+
+  # If we didn't find what we were looking for in this season, iterate backwards
+  # to the next season until we either find our episode or run out of seasons.
+  if episode_details.nil?
+    potential_season_indices = season_info
+      .episodeGuideTab
+      .seasons
+      .map { |s| s.to_i(10) } # We expect all seasons to be string integers
+      .sort
+      .reverse
+
+    # Turn `nil` into the latest season id.
+    current_season_index =
+      if season_index.nil?
+        # Use the largest season index, i.e. the latest season, if we used the
+        # "shortcut" of `nil` to fetch the season.
+        potential_season_indices.max
+      else
+        # Otherwise, use the value we were given.
+        season_index
+      end
+
+    previous_season_index = current_season_index - 1
+    return (
+      # Season 0 appears to be a nonsense season and doesn't actually count for
+      # anything. It looks like it contains a bunch of dummy episodes most of
+      # the time, none of which appears to contain useful information anyway!
+      if !potential_season_indices.include?(previous_season_index) || previous_season_index.zero?
+        # If we get to the point where we want to search through the episodes of
+        # the prior season, but there isn't a season that fits the bill, we're
+        # out of seasons and aren't going to find the episode details we want.
+        nil
+      else
+        # Recursively fetch and look through the prior season's details.
+        fetch_program_details(
+          series_id,
+          program_id,
+          season_index: previous_season_index,
+          cache: cache,
+        )
+      end
+    )
+  end
+
+  # We found our desired episode details and can parse them!
+
+  # Can be the empty string when a rating is (presumably) unknown.
+  display_rating = episode_details.displayRating
+  rating =
+    if display_rating.nil? || display_rating.empty?
+      nil
+    else
+      display_rating
+    end
+
+  # Movies have their release year populated with a string year like `1976` but
+  # an original air date of `1000-01-01`, whereas TV show episodes have an
+  # accurate original air date but an empty string release year. We'll also
+  # occasionally get neither!
+  original_release_date =
+    if !episode_details.releaseYear.empty?
+      # We use the first of the year as a dummy day since having a release year
+      # almost certainly means we're dealing with a movie for which we _only_
+      # have a year anyway.
+      Date.parse("#{episode_details.releaseYear}-01-01").to_time
+    elsif !episode_details.originalAirDate.empty?
+      Date.parse(episode_details.originalAirDate).to_time
+    else
+      # This is the typical "dummy date" we see in the API responses, so we use
+      # it for parity.
+      Date.parse('1000-01-01')
+    end
+
+  # If one or both of the potential dates was nonsense, we set the value to
+  # `nil` to clearly indicate as much.
+  original_release_date = nil if original_release_date.year < 1500
+
+  title = episode_details.episodeTitle.strip
+  title = nil if title.empty?
+
+  description = episode_details.synopsis.strip
+  description = nil if description.empty?
+
+  # A season of zero appears to indicate some sort of dummy, placeholder season
+  # most (all?) of the time and hence should act as if it's not present at all.
+  season = episode_details.seasonNumber.to_i(10)
+  season = nil if season <= 0
+
+  episode = episode_details.episodeNumber.to_i(10)
+  episode = nil if episode < 0
+
+  OpenStruct.new({
+    # Use the id we were given since it may differ from the munged one the
+    # episode info contains.
+    program_id: program_id,
+
+    # These are 1-based, though "special" episodes (e.g. clip shows or series
+    # retrospectives) might get an episode number of `0`.
+    season: season,
+    episode: episode,
+
+    title: title,
+    description: description,
+    original_release_date: original_release_date,
+    rating: rating,
+    tags: episode_details
+      .tags
+      .split('|')
+      .map(&:strip)
+      .reject(&:empty?),
+    genres: episode_details
+      .programGenres
+      .split('|')
+      .map(&:strip)
+      .reject(&:empty?),
+    new?: episode_details.isNew,
+    live?: episode_details.isLive,
+    premier?: episode_details.isPremier,
+    finale?: episode_details.isFinale,
+  })
+end
+
+# Downloads and returns all the program data for the given date, if possible.
 def fetch_lineup(
   channel, # Channel
-  start_date = Time.now, # Time, but will be truncated to its data component
+  start_date = Time.now, # Time, but will be truncated to its date component
   days_to_fetch: 999_999_999, # The maximum number of days of data to fetch
   cache: OpenStructCache.new # OpenStructCache
 )
-  raise 'TODO: Implement fetch_lineup'
+  # First, we check the cache for any existing data for the given date. This is
+  # necessary since every request to the API contains 14 days of data, however
+  # it gets cached by `fetch` as one giant blob.
+  #
+  # If/when we do a _real_ fetch for all this data, we cache it individually by
+  # date so we can look up only the required date when necessary and save a
+  # bunch of effort around effectively only being able to fetch data for "today
+  # + 14 days" from zap2it and not being able to specify an arbitrary single
+  # date.
+  lineup_date_cache_key = get_lineup_date_cache_key(channel, start_date)
+  lineup_data = cache.get(lineup_date_cache_key)
+
+  if lineup_data.nil?
+    # If we didn't have this data in the cache, the first question we have to
+    # ask is "can we even obtain this lineup data?". The zap2it API effectively
+    # only allows queries for one day in the past to one day in the future, and
+    # requires returning 14 days of data starting at the given date.
+    #
+    # We therefore must check to see whether the date we were given falls into
+    # that range, and only if it does can we attempt to make an API request to
+    # retrieve its data.
+    now = Time.now
+    min_start_time = truncate_time(now, TimeInterval::DAYS) - TimeInterval::DAYS
+    max_start_time = truncate_time(now, TimeInterval::DAYS) + TimeInterval::DAYS
+    if start_date < min_start_time
+      raise ArgumentError, "Start date is too early, cannot be earlier than #{min_start_time}"
+    elsif start_date > max_start_time
+      raise ArgumentError, "Start date is too late, cannot be later than #{max_start_time}"
+    end
+
+    # We cache for only a single day since program lineup info might change for
+    # whatever reason, especially further in the future where there's less
+    # certainty.
+    ttl_seconds = TimeInterval::DAYS
+
+    lineup_data_for_fortnight = fetch(
+      ZAP2IT_API_HOST,
+      '/api/sslgrid',
+
+      data: {
+        # A magical required value!
+        aid: :gapzap,
+
+        # Channel/provider info
+        prgsvcid: channel.id,
+        countryCode: channel.provider.country,
+        postalCode: channel.provider.postal_code,
+        headendId: channel.provider.id,
+
+        # The number of hours of program lineup data to fetch.
+        #
+        # Only seems to support extremely specific values in certain contexts,
+        # `336` (i.e. 14 days) being the most (only?) reliable value.
+        timespan: 14 * TimeInterval::DAYS / TimeInterval::HOURS,
+
+        # The Unix time at which to start fetching data. Appears to support one
+        # day in the past to one day in the future, but will still only return up
+        # to `timespan` hours of data.
+        #
+        # To simplify reasoning about what date(s) to return etc., we truncate the
+        # given start date to midnight and fetch data starting then.
+        timestamp: truncate_time(start_date, TimeInterval::DAYS).to_i
+      },
+
+      cache: cache,
+      ttl_seconds: ttl_seconds,
+    )
+
+    # The lineup data comes in mapped date string to array of programs; we
+    # convert this into a cache entry per date.
+    lineup_data_for_fortnight.each_pair do |_, lineup_programs|
+      # Grab the apparent date from the lineup data itself. This ensures that
+      # we'll always have a consistent date format for our cache.
+      first_program_info = lineup_programs.first
+
+      if first_program_info.nil?
+        raise IOError, "Unexepectedly found an empty lineup for channel #{channel}"
+      end
+
+      first_program_time = Time.at(first_program_info.progDateUnix)
+
+      # Update the cache with the information for this date alone, allowing it
+      # to be accessed separately from the other lineups from the API request
+      # from which it was fetched.
+      cache_key = get_lineup_date_cache_key(channel, first_program_time)
+      cache.set(cache_key, lineup_programs, ttl_seconds, now: now)
+    end
+
+    # Now that we've (hopefully...) cached the lineup for our original start
+    # date, we can re-fetch it directly from the cache.
+    lineup_data = cache.get(lineup_date_cache_key)
+    if lineup_data.nil?
+      raise IOError, "Unexepectedly failed to look up fetched lineup date in cache for channel #{channel}"
+    end
+  end
+
+  lineup_data.map do |basic_program_info|
+    series_id = basic_program_info.seriesId
+    program_id = basic_program_info.program.tmsId
+
+    # First, grab whatever information we can from the program info we already
+    # have. This often isn't complete, but if we can't fetch any more details
+    # than this we'll have to make due with all that we got.
+    start_time = Time.at(basic_program_info.startTime)
+    end_time = Time.at(basic_program_info.endTime)
+
+    title = basic_program_info.program.title
+    secondary_title =  basic_program_info.program.episodeTitle
+    description = basic_program_info.program.shortDesc
+    image_url = "https://zap2it.tmsimg.com/assets/#{basic_program_info.thumbnail}.jpg"
+
+    # Season and episode come in as either `nil` or a string integer.
+    season = basic_program_info.program.season
+    season = season.to_i(10) unless season.nil?
+    episode = basic_program_info.program.episode
+    episode = episode.to_i(10) unless episode.nil?
+
+    rating = basic_program_info.rating
+
+    # These don't show up at all in the basic info :(
+    genres = []
+
+    original_release_date =
+      if basic_program_info.program.releaseYear.nil?
+        nil
+      else
+        Date.parse("#{basic_program_info.program.releaseYear.rjust(4, '0')}-01-01").to_time
+      end
+
+    # Movies have series ids that start with `MV`!
+    is_movie = /^MV/i.match?(basic_program_info.seriesId)
+
+    # Generic comes in as `"0"` or `"1"` and appears to indicate things like
+    # "paid programming".
+    is_generic = basic_program_info.program.isGeneric == '1'
+
+    # These "bits" are special in that in the basic info they come back as tags,
+    # but in the enhanced info they come back as their own individual flags. We
+    # search the basic info for any tags that indicate these flags, then Boolean
+    # "or" them with any that come back from the enhanced info.
+    #
+    # TODO: Verify each tag name. I've only actually _seen_ `New`, so the rest
+    # of the tag names are guesses for now!
+    flag_tags = [
+      new_tag = 'New',
+      live_tag = 'Live',
+      premier_tag = 'Premier',
+      finale_tag = 'Finale',
+    ]
+    is_new = basic_program_info.tag.include?(new_tag)
+    is_live = basic_program_info.tag.include?(live_tag)
+    is_premier = basic_program_info.tag.include?(premier_tag)
+    is_finale = basic_program_info.tag.include?(finale_tag)
+
+    # Omit any of the "special" tags we just checked for since they're redundant
+    # if included in both places.
+    #
+    # NOTE: The tags at the "top level" here in the basic info are actually
+    # _better_ than the tags we get from the enhanced info! The "enhanced" tags
+    # come in something like `STEREO|CC` and have to be manually cleaned, so we
+    # prefer the "basic" tags instead.
+    tags = (basic_program_info.tags || []).reject { |t| flag_tags.include?(t) }
+
+    # Now, fetch detailed program info if possible and improve what we've
+    # already gathers.
+    enhanced_program_info = fetch_program_details(series_id, program_id, cache: cache)
+    unless enhanced_program_info.nil?
+      # We prefer the detailed version of this data if available, otherwise we
+      # fall back to the "basic" version
+      season = enhanced_program_info.season || season
+      episode = enhanced_program_info.episode || episode
+
+      # We "merge" these basic values with the enhanced ones.
+      is_new = is_new || enhanced_program_info.new?
+      is_live = is_live || enhanced_program_info.live?
+      is_premier = is_premier || enhanced_program_info.premier?
+      is_finale = is_finale || enhanced_program_info.finale?
+
+      # If any of these values seem to be more "substantial" than the ones we
+      # got from the basic info, we'll use them instead.
+      secondary_title = secondary_title || enhanced_program_info.title
+      if (enhanced_program_info.title || '').length > (secondary_title || '').length
+        secondary_title = enhanced_program_info.title
+      end
+
+      description = description || enhanced_program_info.description
+      if (enhanced_program_info.description || '').length > (description || '').length
+        description = enhanced_program_info.description
+      end
+
+      # For these, we prefer the "enhanced" version wherever available.
+      original_release_date = enhanced_program_info.original_release_date || original_release_date
+      rating = enhanced_program_info.rating || rating
+
+      # These don't show up at all in the "basic" info, so we _must_ use those
+      # that come back from the enhanced info.
+      genres = enhanced_program_info.genres
+    end
+
+    Program.new(
+      channel: channel,
+      series_id: series_id,
+      program_id: program_id,
+      start_time: start_time,
+      end_time: end_time,
+      image_url: image_url,
+      season: season,
+      episode: episode,
+      title: title,
+      secondary_title: secondary_title,
+      description: description,
+      rating: rating,
+      original_release_date: original_release_date,
+      tags: tags,
+      genres: genres,
+      is_movie: is_movie,
+      is_new: is_new,
+      is_live: is_live,
+      is_premier: is_premier,
+      is_finale: is_finale,
+      is_generic: is_generic,
+
+      # TODO: Where would we find this?
+      previously_shown_time: nil,
+    )
+  end
 end
 
 # Formats the given data nicely for display in the terminal as a table and
@@ -2131,6 +2830,38 @@ def display_channels(
   display_table(
     [:'CALL_SIGN', :NUMBER, :NAME, :ID],
     channels.map { |c| [c.call_sign, c.number, c.name, c.id] },
+  )
+end
+
+# Returns a string for terminal output representing the program linupe for the
+# given channel.
+def display_lineup(
+  channels, # Channel
+  start_date = Time.now, # Time, inclusive, but will be truncated to its date component
+  end_date = start_date + TimeInterval.DAYS, # Time, exclusive, but will be truncated to its date component
+  cache: OpenStructCache.new # OpenStructCache
+)
+  programs = channels.flat_map do |channel|
+    fetch_lineup(
+      channel,
+      start_date,
+      cache: cache,
+    )
+  end
+
+  date_format = '%Y-%m-%d'
+  time_format = '%l:%M %p'
+  display_table(
+    [:CHANNEL, :START_DATE, :START, :END, :TITLE],
+    programs.map do |p|
+      [
+        p.channel.call_sign,
+        p.start_time.strftime(date_format),
+        p.start_time.strftime(time_format),
+        p.end_time.strftime(time_format),
+        p.title
+      ]
+    end,
   )
 end
 
@@ -2209,6 +2940,42 @@ def main!
     )
     $output.puts(output)
     return
+  end
+
+  # Download and print out a listing of the channel lineups for the given
+  # channels and times.
+  if config.return_lineup?
+    country = config.require(:country)
+    postal_code = config.require(:postal_code)
+    provider_id = config.require(:provider_id)
+
+    provider = fetch_provider(
+      country,
+      postal_code,
+      provider_id,
+      cache: cache,
+    )
+
+    if provider.nil?
+      raise ArgumentError, "No provider found for country #{country}, postal code #{postal_code}, and id #{provider_id}"
+    end
+
+    # TODO: Obey --days and --day-offset values here!
+
+    channels = fetch_channels(
+      provider,
+      channel_tokens: config.channel_tokens,
+      cache: cache,
+    )
+
+    now = Time.now
+    output = display_lineup(
+      channels,
+      now,
+      now + TimeInterval::DAYS,
+      cache: cache,
+    )
+    $output.puts(output)
   end
 ensure
   # Always attempt to persist the cache once we're done, assuming it got
