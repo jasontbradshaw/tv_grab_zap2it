@@ -843,7 +843,7 @@ class Cache
 
     @path.open('w') do |f|
       # Since we control this, we know it's non-circular.
-      json_text = JSON.fast_generate(@cache)
+      json_text = JSON.fast_generate(@cache, object_nl: "\n")
       f.write(json_text)
     end
 
