@@ -2828,7 +2828,7 @@ def display_lineup(
   date_format = '%Y-%m-%d'
   time_format = '%l:%M %p'
   display_table(
-    [:CHANNEL, :START_DATE, :START, :END, :TITLE],
+    [:CHANNEL, :DATE, :START, :END, :TITLE],
     programs.map do |p|
       [
         p.channel.call_sign,
