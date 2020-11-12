@@ -2952,6 +2952,7 @@ def main!
       cache: cache,
     )
     $output.puts(output)
+    return
   end
 ensure
   # Always attempt to persist the cache once we're done, assuming it got
