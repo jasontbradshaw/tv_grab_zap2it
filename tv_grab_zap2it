@@ -1111,7 +1111,29 @@ def fetch(
 
     # Parse the body as JSON, the only response format we expect to receive.
     begin
-      JSON.parse(res.body)
+      # Guess what? The API returns improperly-escaped JSON strings!
+      #
+      # These seem to take the form of attempts to escape quotes within strings,
+      # but accidentally escaping the backslash instead of the quote itself,
+      # e.g. we've seen things like:
+      #
+      # ```json
+      # {
+      #    "prop": "Foo \\"bar\\" baz!"
+      # }
+      # ```
+      #
+      # These should _actually_ be:
+      #
+      # ```json
+      # {
+      #    "prop": "Foo \"bar\" baz!"
+      # }
+      # ```
+      #
+      # We correct the mistake before attempting to parse the body.
+      corrected_body = res.body.gsub(/\\\\"/, '\\"')
+      JSON.parse(corrected_body)
     rescue JSON::ParserError => err
       raise IOError, "Failed to parse HTTP response from #{uri}: #{err}"
     end
