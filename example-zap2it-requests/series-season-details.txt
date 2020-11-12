@@ -1,9 +1,9 @@
 $ curl \
   --verbose \
   'https://tvlistings.zap2it.com/gapzap_webapi/api/program/PostEpisodeGuide' \
+  -d 'aid=gapzap' \
   -d 'pageNo=1' \
   -d 'pageSize=999' \
-  -d 'aid=gapzap' \
   -d 'season=9' \
   -d 'programSeriesID=SH00446173'
 *   Trying 44.240.12.203:443...
