@@ -532,25 +532,6 @@ class Channel
   end
 end
 
-# An episode number in some episode numbering system, e.g. `S01E02` in the
-# `onscreen` system.
-class EpisodeNumber
-  attr_reader \
-    :value,
-    :system
-
-  def initialize(
-    value: nil, # String
-    system: nil # :xmltv_ns | :onscreen
-  )
-    raise 'TODO: Implement EpisodeNumber'
-  end
-
-  def to_xml
-    raise 'TODO: Implement EpisodeNumber#to_xml'
-  end
-end
-
 # One program/timeslot combination in a channel's lineup.
 class Program
   attr_reader \
