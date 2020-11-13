@@ -9,6 +9,7 @@ require 'ostruct'
 require 'pathname'
 require 'set'
 require 'uri'
+require 'zlib'
 
 # TODO:
 # * Allow mapping channel call sign/number combos to custom names, which take
@@ -795,13 +796,19 @@ class Cache
     if !path.nil? && path.exist?
       begin
         @cache = path.open('r') do |f|
+          compressed_json_text = f.read
+
+          # The data is stored GZipped, so we must decompress it before parsing
+          # the JSON data contained within.
+          json_text = Zlib.gunzip(compressed_json_text)
+
           # We use `JSON#parse` instead of `JSON#load` so we don't have to trust
           # the input file we were given, which the documentation suggests we must
           # do if using `JSON#load`.
-          JSON.parse(f.read, symbolize_names: true)
+          JSON.parse(json_text, symbolize_names: true)
         end
       rescue StandardError => err
-        raise IOError, "Unable to parse cache at #{path}: #{err}"
+        raise IOError, "Unable to load cache at #{path}: #{err}"
       end
 
       unless @cache.is_a?(Hash)
@@ -841,7 +848,13 @@ class Cache
     @path.open('w') do |f|
       # Since we control this, we know it's non-circular.
       json_text = JSON.fast_generate(@cache, object_nl: "\n")
-      f.write(json_text)
+
+      # GZip the data heavily since it can get quite large (100Mb or more!) and
+      # compresses very well since it's mostly JSON and contains a lot of
+      # human-generated text (Wikipedia articles, plot summaries, etc.).
+      compressed_json_text = Zlib.gzip(json_text, level: Zlib::BEST_COMPRESSION)
+
+      f.write(compressed_json_text)
     end
 
     # Once the cache has been persisted, it's no longer considered "dirty" since
