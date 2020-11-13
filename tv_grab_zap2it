@@ -51,6 +51,9 @@ RELEASE =
 # Compile the version information into a single string for easy use elsewhere.
 VERSION_INFO = "#{PROGRAM_NAME} v#{VERSION} (#{RELEASE})"
 
+# The number of seconds to wait for any given HTTP request to finish.
+HTTP_REQUEST_TIMEOUT_SECONDS = 15
+
 XMLTV_DESCRIPTION = 'USA/Canada (zap2it.com)'
 XMLTV_CAPABILITIES = %w[baseline cache].freeze
 
@@ -1262,17 +1265,17 @@ end
 # this to enforce a minimum time between HTTP requests to a given host.
 LAST_FETCH_END_TIMES_BY_HOST = Hash.new { Time.at(0).getutc }
 
-# Makes a GET request to some host/path combination and returns the JSON
+# Makes a GET or POST request to some host/path combination and returns the JSON
 # response with symbolized keys. If the request fails or its response body can't
 # be parsed, raises an `IOError`.
 def fetch(
-  *path, # Array<any>
+  *path_parts, # Array<any>
   query: nil, # Hash<Symbol, any> | nil
   data: nil, # Hash<Symbol | String, JSON> | nil
   cache: Cache.new, # Cache
   ttl_seconds: nil # Integer
 ) # JSON
-  full_path = File.join(*path.map(&:to_s))
+  full_path = File.join(*path_parts.map(&:to_s))
 
   uri =
     begin
@@ -1309,16 +1312,15 @@ def fetch(
     begin
       # Don't allow things to take too long since we might be making a lot of
       # requests.
-      timeout = 15 * TimeInterval::SECONDS
       res =
         Net::HTTP.start(
           uri.host,
           uri.port,
           use_ssl: u.scheme == 'https',
-          open_timeout: timeout,
-          read_timeout: timeout,
-          write_timeout: timeout,
-          ssl_timeout: timeout,
+          open_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
+          read_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
+          write_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
+          ssl_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
         ) do |http|
           method = data.nil? ? :GET : :POST
           body_data =
