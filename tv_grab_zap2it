@@ -275,8 +275,6 @@ class Arg
       rescue ArgumentError => err
         raise ArgumentError, "{{ name }} of #{value.inspect} is not a valid integer: #{err}"
       end
-
-      value
     end
   end
 
@@ -293,6 +291,8 @@ class Arg
       if value < n
         raise ArgumentError, "{{ name }} of #{value.inspect} must not be less than #{n}"
       end
+
+      value
     end
   end
 
@@ -300,9 +300,11 @@ class Arg
     n # Integer
   )
     self.parser do |value|
-      if value > max
+      if value > n
         raise ArgumentError, "{{ name }} of #{value.inspect} must not be greater than #{n}"
       end
+
+      value
     end
   end
 
