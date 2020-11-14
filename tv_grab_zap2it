@@ -3,6 +3,7 @@
 require 'date'
 require 'digest'
 require 'json'
+require 'logger'
 require 'net/http'
 require 'optparse'
 require 'ostruct'
@@ -138,6 +139,71 @@ class TimeInterval
   DAYS = 24 * HOURS
   WEEKS = 7 * DAYS
 end.freeze
+
+class Color
+  BLACK = "\e[30m"
+  RED = "\e[31m"
+  GREEN = "\e[32m"
+  BROWN = "\e[33m"
+  BLUE = "\e[34m"
+  MAGENTA = "\e[35m"
+  CYAN = "\e[36m"
+  WHITE = "\e[37m"
+
+  RESET = "\e[0m"
+end.freeze
+
+# Used to extract information about a method from an entry in the call stack.
+CALLER_INFO_REGEXP = /:(?<line_number>\d+):in\s+\`(?<method_name>[^']+)'$/
+
+# Create the global logger for simple use from all places in the program. If
+# this is configured further, we do so in `#main!`.
+LOG = Logger.new(
+  # Always log to STDERR so we don't mess with anything we're otherwise writing
+  # to STDOUT. If someone wants to log to a different file, they can redirect
+  # our error output to it themselves!
+  $stderr,
+
+  # The level we pick here isn't of consequence since we'll override it
+  # immediately on running `#main!` with whatever the user configured, or with
+  # the default option we selected when generating the config.
+  level: :error,
+
+  # Enable nice custom formatting for useful output.
+  formatter: Proc.new do |severity, datetime, program_name, message|
+    output_parts = []
+
+    # Only include "fancy" output information at the most verbose log level
+    # since it's expensive to compute.
+    if LOG.debug?
+      severity_letter, severity_color =
+        case severity
+          when 'DEBUG' then ['D', Color::CYAN]
+          when 'INFO' then ['I', Color::WHITE]
+          when 'WARN' then ['W', Color::BROWN]
+          when 'ERROR' then ['E', Color::RED]
+          when 'FATAL' then ['F', Color::MAGENTA]
+          when 'UNKNOWN' then ['U', Color::BLUE]
+        end
+
+      output_parts << "#{severity_color}#{severity_letter}#{Color::RESET}"
+      output_parts << datetime.strftime('%Y%m%d_%H%M%S.%5N')
+
+      log_call_stack = caller(4)
+      if caller_info = CALLER_INFO_REGEXP.match(log_call_stack.first)
+        output_parts << "#{caller_info[:method_name]}@#{caller_info[:line_number]}"
+      end
+
+      output_parts << '--'
+    end
+
+    output_parts << message
+
+    output_parts
+      .compact
+      .join(' ') + "\n"
+  end,
+)
 
 # A builder-style class for parsing and validating arguments in a standardized
 # way.
@@ -1017,7 +1083,11 @@ def parse_config_from_args(
     day_offset: 0, # Integer
     days_to_fetch: ZAP2IT_MAXIMUM_DAYS_TO_FETCH, # Integer
     output_file: $stdout, # File-like
-    quiet?: false,
+
+    # Default to "warning" level as a nice mix between being quiet and being
+    # noisy. If the user wishes to change this, they can choose a different
+    # level with any of `--debug`, `--verbose`, or `--quiet`.
+    log_level: :warn,
 
     # Program-specific configuration, mostly required.
     channel_tokens: Set.new, # Set<String>
@@ -1083,9 +1153,9 @@ def parse_config_from_args(
     opts.on(
       '-q',
       '--quiet',
-      'Suppress non-error output.'
+      'Log only at the error level and higher.'
     ) do
-      config[:quiet?] = true
+      config.log_level = :error
     end
 
     output_flag = '--output'
@@ -1166,6 +1236,22 @@ def parse_config_from_args(
     ############################################################################
     # PROGRAM OPTIONS
     ############################################################################
+
+    debug_flag = '--debug'
+    opts.on(
+      debug_flag,
+      'Enable all logging; this is the most verbose level of output available.',
+    ) do
+      config.log_level = :debug
+    end
+
+    verbose_flag = '--verbose'
+    opts.on(
+      verbose_flag,
+      'Enable logging at the info level and higher.',
+    ) do
+      config.log_level = :info
+    end
 
     country_flag = '--country'
     opts.on(
@@ -1345,12 +1431,17 @@ def fetch(
       end
 
       # Parse the body as JSON, the only response format we expect to receive.
+      body = res.body
       begin
-        # Guess what? The API returns improperly-escaped JSON strings!
+        JSON.parse(body, symbolize_names: true)
+      rescue JSON::ParserError => err
+        # Guess what? Sometimes, the API returns improperly-escaped JSON
+        # strings!
         #
-        # These seem to take the form of attempts to escape quotes within
-        # strings, but accidentally escaping the backslash instead of the quote
-        # itself, e.g. we've seen things like:
+        # These seem to take the form of faulty attempts to escape quotes within
+        # strings, where the backslash is escaped instead of the quote itself.
+        #
+        # E.g. we've seen things like:
         #
         # ```json
         # {
@@ -1358,7 +1449,7 @@ def fetch(
         # }
         # ```
         #
-        # These should _actually_ be:
+        # These should _probably_ be:
         #
         # ```json
         # {
@@ -1366,11 +1457,15 @@ def fetch(
         # }
         # ```
         #
-        # We correct the mistake before attempting to parse the body.
-        corrected_body = res.body.gsub(/\\\\"/, '\\"')
-        JSON.parse(corrected_body, symbolize_names: true)
-      rescue JSON::ParserError => err
-        raise IOError, "Failed to parse HTTP response from #{uri}: #{err}"
+        # If the parse fails, we make a last-ditch attempt to "rescue" it by
+        # replacing such known instances of bad escaping, before finally giving
+        # up if we're unable to do so.
+        begin
+          corrected_body = body.gsub(/\\\\"/, '\\"')
+          JSON.parse(corrected_body, symbolize_names: true)
+        rescue JSON::ParserError => err
+          raise IOError, "Failed to parse HTTP response from #{uri}: #{err}"
+        end
       end
     ensure
       # We mark the _true_ end of the fetch, including response parsing, so we
@@ -2933,6 +3028,11 @@ end
 def main!
   config = parse_config_from_args(ARGV).freeze
 
+  # Set up logging as requested before we do anything else so we can ensure any
+  # chose log settings are respected for as long as possible.
+  LOG.level = config.log_level
+  LOG.info("Logging configured for #{config.log_level.to_s.upcase}-level output")
+
   $output = config.output_file
   cache = config.cache
 
@@ -3056,6 +3156,11 @@ def main!
   # The default action is always to output the XMLTV XML described at
   # https://github.com/XMLTV/xmltv/blob/80e893e0b6c77224f2ed353a0fb577e2f82c69d4/xmltv.dtd.
   # To do this, we need to fetch all the requisite channels and providers.
+rescue StandardError => err
+  # If we explode for any reason, exit with an error status and log the error
+  # appropriately.
+  LOG.error(err)
+  exit 1
 ensure
   # Always attempt to persist the cache once we're done, assuming it got
   # initialized.
@@ -3064,7 +3169,13 @@ ensure
   # doesn't store entries that generate an exception during population, meaning
   # that whatever _does_ end up in the cache was at least valid enough to have
   # been generated by the code.
-  cache.persist! unless cache.nil?
+  if cache.nil?
+    LOG.debug("Unable to persist a cache that hasn't been loaded.")
+  else
+    LOG.debug("Persisting cache to #{cache.path}...")
+    cache.persist!
+    LOG.debug("Persisted cache to #{cache.path}")
+  end
 end
 
 if __FILE__ == $0
