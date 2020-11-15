@@ -856,14 +856,14 @@ class Config < OpenStruct
 
   # Pretty-print our configuration for ease of logging.
   def to_s
-    "Config\n" + each_pair.map do |(key, value)|
+    "Config(\n" + each_pair.map do |(key, value)|
       # Omit certian gigantic and not-terribly-useful keys.
-      if [:option_parser, :cache].include?(key.to_sym)
+      if [:option_parser, :cache].include?(key)
         next nil
       end
 
-      "  #{key}: #{value.inspect}"
-    end.compact.join("\n") + "\nEndConfig"
+      "  #{key.inspect} => #{value.inspect}"
+    end.compact.join("\n") + "\n)"
   end
 end
 
