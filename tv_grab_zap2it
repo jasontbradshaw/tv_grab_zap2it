@@ -451,6 +451,131 @@ class Arg
   end
 end
 
+# A simple XML tag container that can form a tree and be printed to a string.
+# This handles correct escaping of stringified values, so provide everything "as
+# is" and allow this class to handle all escaping for you.
+class Xml
+  attr_reader \
+    :name,
+    :attributes,
+    :children
+
+  def initialize(
+    name, # Symbol | String, with `_` converted to `-` for Symbols
+    attributes = {}, # Hash<Symbol | String, any>
+    *children # Array<Xml | String | nil>, `nil` and empty string values ommitted
+  )
+    # We convert `_` to `-` for symbols since writing symbols with hyphens in
+    # their names is tedious.
+    @name =
+      if name.is_a?(Symbol)
+        hyphenize_symbol(name)
+      else
+        name.to_sym
+      end
+
+    @attributes = attributes
+    @children = children
+      .compact
+      .reject { |n| n.is_a?(String) && n.empty? }
+  end
+
+  # Print this XML tag and all its children to a correctly-escaped and formatted
+  # string, something suitable for writing to a file.
+  def to_s(
+    depth: 0, # Integer
+    prev_thing: nil # :tag | :text | nil (`nil` only for very first element)
+  )
+    attrs_string = @attributes
+      .map do |(name, val)|
+        name =
+          if name.is_a?(Symbol)
+            hyphenize_symbol(name)
+          else
+            name
+          end
+        " #{name}=\"#{escape_attribute_value(val.to_s)}\""
+      end
+      .join
+
+    indent = "\t" * depth
+
+    # There's no need to output the children if there are none!
+    is_self_closing = @children.count.zero?
+    if is_self_closing
+      tag = "<#{@name}#{attrs_string} />"
+      if prev_thing == :tag
+        return "\n" + indent + tag
+      else
+        return tag
+      end
+    end
+
+    # Now, we assemble the output string appropriately.
+    parts = []
+
+    if prev_thing == :tag
+      parts << "\n"
+      parts << indent
+    end
+
+    # Add the opening tag, which is a `:tag` for our purposes.
+    parts << "<#{@name}#{attrs_string}>"
+    prev_thing = :tag
+
+    @children.each do |child|
+      if child.is_a?(String)
+        parts << escape_text(child)
+        prev_thing = :text
+      else
+        parts << child.to_s(depth: depth + 1, prev_thing: prev_thing)
+        prev_thing = :tag
+      end
+    end
+
+    if prev_thing == :tag
+      parts << "\n"
+      parts << indent
+    end
+
+    parts << "</#{@name}>"
+
+    parts.join
+  end
+
+  private
+
+  def hyphenize_symbol(
+    sym # Symbol
+  ) # Symbol
+    sym
+      .to_s
+      .gsub(/_/, '-')
+      .to_sym
+  end
+
+  # See https://stackoverflow.com/a/1091953 for information about escaping
+  # XML strings.
+  def escape_text(
+    text # String
+  ) # String
+    text
+      .gsub(/&/, '&amp;') # Must come first to prevent double-escaping others!
+      .gsub(/</, '&lt;')
+  end
+
+  # We print all attributes surrounded by `"`, so we don't escape `'` within
+  # attribute text.
+  def escape_attribute_value(
+    value # String
+  ) # String
+    value
+      .gsub(/&/, '&amp;') # Must come first to prevent double-escaping others!
+      .gsub(/"/, '&quot;')
+      .gsub(/</, '&lt;')
+  end
+end
+
 # A provider, something that has a "lineup" associated with it. Typically this
 # is something like "Local over-the-air stations" or "AT&T Uverse Cable" or
 # something of this nature.
@@ -591,6 +716,8 @@ class Channel
         # The URL _also_ comes in with `w=123`, but if we strip this off then
         # we'll get back the original, full-size picture instead.
         uri.query = nil
+
+        uri
       end
       .parse(image_url)
   end
@@ -604,7 +731,12 @@ class Channel
   end
 
   def to_xml
-    raise 'TODO: Implement Channel#to_xml'
+    Xml.new(:channel, { id: xml_id() }, *[
+      Xml.new(:icon, { src: @image_url }),
+      Xml.new(:display_name, {}, @name),
+      Xml.new(:display_name, {}, @call_sign),
+      Xml.new(:display_name, {}, @number),
+    ])
   end
 
   def to_s
@@ -692,21 +824,23 @@ class Program
       end
       .parse(end_time)
 
-    unless season.nil?
-      @season = Arg
-        .name('season')
-        .is_a(Integer)
-        .min(1)
-        .parse(season)
-    end
+    @season =
+      unless season.nil?
+        Arg
+          .name('season')
+          .is_a(Integer)
+          .min(1)
+          .parse(season)
+      end
 
-    unless episode.nil?
-      @episode = Arg
-        .name('episode')
-        .is_a(Integer)
-        .min(0) # We allow zero since this can indicate "special" episodes.
-        .parse(episode)
-    end
+    @episode =
+      unless episode.nil?
+        Arg
+          .name('episode')
+          .is_a(Integer)
+          .min(0) # We allow zero since this can indicate "special" episodes.
+          .parse(episode)
+      end
 
     @title = Arg
       .name('title')
@@ -725,14 +859,15 @@ class Program
           .parse(secondary_title)
       end
 
-    unless @description.nil?
-      @description = Arg
-        .name('description')
-        .is_a(String)
-        .strip
-        .non_empty
-        .parse(description)
-    end
+    @description =
+      unless description.nil?
+        Arg
+          .name('description')
+          .is_a(String)
+          .strip
+          .non_empty
+          .parse(description)
+      end
 
     @image_url = Arg
       .name('image_url')
@@ -760,12 +895,13 @@ class Program
           .parse(rating)
       end
 
-    unless original_release_date.nil?
-      @original_release_date = Arg
-        .name('original_release_date')
-        .is_a(Time)
-        .parse(original_release_date)
-    end
+    @original_release_date =
+      unless original_release_date.nil?
+        Arg
+          .name('original_release_date')
+          .is_a(Time)
+          .parse(original_release_date)
+      end
 
     @is_movie = Arg
       .name('is_movie')
@@ -818,7 +954,93 @@ class Program
   def generic?; @is_generic; end
 
   def to_xml
-    raise 'TODO: Implement Program#to_xml'
+    attrs = {
+      start: format_xmltv_time(@start_time),
+      stop: format_xmltv_time(@end_time),
+      channel: @channel.xml_id,
+    }
+
+    children = []
+
+    if @image_url
+      children << Xml.new(:icon, { src: @image_url })
+    end
+
+    if @season && @episode
+      id =
+        [
+          "S#{@season.to_s.rjust(2, '0')}",
+          "E#{@episode.to_s.rjust(2, '0')}",
+      ].join
+      children << Xml.new(:episode_num, { system: :onscreen }, id)
+    end
+
+    children << Xml.new(:title, { lang: :en }, @title)
+    if @secondary_title
+      children << Xml.new(:sub_title, { lang: :en }, @secondary_title)
+    end
+
+    children << rating_xml()
+
+    # Include both genres and tags as categories since it makes sense to be
+    # able to filter by any combination of the two, e.g. for queries like
+    # "HDTV Sports".
+    [*@genres, *@tags].each do |category_text|
+      children << Xml.new(:category, { lang: :en }, category_text)
+    end
+
+    # Include the description tag last since it messes up pretty printing as
+    # it contains raw text.
+    if @description
+      children << Xml.new(:desc, { lang: :en }, @description)
+    end
+
+    children << Xml.new(:last_chance) if finale?
+    children << Xml.new(:new) if new?
+    children << Xml.new(:premiere) if premier?
+
+    Xml.new(:programme, attrs, *children)
+  end
+
+  # If a rating is present, returns an XMLTV tag representing it. Otherwise,
+  # returns `nil`.
+  def rating_xml # Xml | nil
+    return nil if rating.nil?
+
+    attributes = {}
+    children = [
+      # The rating is always included as the value of the overall tag.
+      Xml.new(:value, {}, @rating)
+    ]
+
+    # These icons are sourced from
+    # https://en.wikipedia.org/wiki/TV_Parental_Guidelines#Ratings.
+    ratings_to_icon_urls = {
+      'TV-Y' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/TV-Y_icon.svg/250px-TV-Y_icon.svg.png',
+      'TV-Y7' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/TV-Y7_icon.svg/250px-TV-Y7_icon.svg.png',
+      'TV-G' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/TV-G_icon.svg/250px-TV-G_icon.svg.png',
+      'TV-PG' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/TV-PG_icon.svg/250px-TV-PG_icon.svg.png',
+      'TV-14' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/TV-14_icon.svg/250px-TV-14_icon.svg.png',
+      'TV-MA' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/TV-MA_icon.svg/250px-TV-MA_icon.svg.png',
+    }
+
+    # If the rating is one of the "standard" US FCC values, include an `icon`
+    # tag for it and identify it as such.
+    if ratings_to_icon_urls.include?(@rating)
+      attributes[:system] = 'TV parental guidelines'
+      children << Xml.new(:icon, {}, ratings_to_icon_urls[@rating])
+    end
+
+    Xml.new(:rating, attributes, *children)
+  end
+
+  private
+
+  # Format time in the way the XMLTV specification desires.
+  def format_xmltv_time(
+    t # Time
+  ) # String
+    t.strftime('%Y%m%d%H%M%S %z')
   end
 end
 
@@ -2942,7 +3164,7 @@ def fetch_lineup(
       # _better_ than the tags we get from the enhanced info! The "enhanced"
       # tags come in something like `STEREO|CC` and have to be manually cleaned,
       # so we prefer the "basic" tags instead.
-      tags = (basic_program_info.fetch(:tags, [])).reject { |t| flag_tags.include?(t) }
+      tags = (basic_program_info.fetch(:tag, [])).reject { |t| flag_tags.include?(t) }
 
       # Now, fetch detailed program info if possible and improve what we've
       # already gathers.
@@ -3273,6 +3495,62 @@ def main!
   # The default action is always to output the XMLTV XML described at
   # https://github.com/XMLTV/xmltv/blob/80e893e0b6c77224f2ed353a0fb577e2f82c69d4/xmltv.dtd.
   # To do this, we need to fetch all the requisite channels and providers.
+  LOG.debug('Outputting XML')
+  country = config.require(:country)
+  postal_code = config.require(:postal_code)
+  provider_id = config.require(:provider_id)
+  days_to_fetch = config.require(:days_to_fetch, 'number of days to fetch')
+  day_offset = config.require(:day_offset, 'number of days to offset')
+
+  provider = fetch_provider(
+    country,
+    postal_code,
+    provider_id,
+    cache: cache,
+  )
+
+  if provider.nil?
+    raise ArgumentError, "No provider found for country #{country}, postal code #{postal_code}, and id #{provider_id}"
+  end
+
+  channels = fetch_channels(
+    provider,
+    channel_tokens: config.channel_tokens,
+    cache: cache,
+  )
+
+  # Obey the offset and span values we were given. Note that we re-truncate
+  # the end date to the prior date so that it'll be inclusive rather than
+  # exclusive, as our offset and days-to-fetch values require.
+  now = truncate_time(Time.now.getutc, TimeInterval::DAYS)
+  start_date = now + (day_offset * TimeInterval::DAYS)
+  end_date = truncate_time(
+    start_date + (days_to_fetch * TimeInterval::DAYS) - 1,
+    TimeInterval::DAYS
+  )
+
+  programs = channels.flat_map do |channel|
+    fetch_lineup(
+      channel,
+      start_date,
+      end_date,
+      cache: cache,
+    )
+  end
+
+  # Generate and write the channel and program XML to the output stream.
+  $output.puts('<?xml version="1.0" encoding="utf-8"?>')
+  $output.puts(
+    Xml.new(
+      :tv,
+      {
+        source_info_url: "https://tvlistings.zap2it.com",
+        source_info_name: 'zap2it'
+      },
+      *channels.map(&:to_xml),
+      *programs.map(&:to_xml),
+    )
+  )
 rescue StandardError => err
   # If we explode for any reason, exit with an error status and log the error
   # appropriately.
@@ -3298,6 +3576,4 @@ ensure
   end
 end
 
-if __FILE__ == $0
-  main!
-end
+main! if __FILE__ == $0
