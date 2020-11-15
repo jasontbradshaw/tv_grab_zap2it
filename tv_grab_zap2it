@@ -853,6 +853,18 @@ class Config < OpenStruct
 
     value
   end
+
+  # Pretty-print our configuration for ease of logging.
+  def to_s
+    "Config\n" + each_pair.map do |(key, value)|
+      # Omit certian gigantic and not-terribly-useful keys.
+      if [:option_parser, :cache].include?(key.to_sym)
+        next nil
+      end
+
+      "  #{key}: #{value.inspect}"
+    end.compact.join("\n") + "\nEndConfig"
+  end
 end
 
 # A simple cache, either in-memory or backed by a file. All cached values are
@@ -912,32 +924,46 @@ class Cache
   # originally configured, does nothing.
   def persist! # self
     # If we were given no path, we can't persist the cache.
-    return if @path.nil?
+    if @path.nil?
+      LOG.debug('Unable to persist in-memory cache')
+      return
+    end
 
     # If we're not dirty, i.e. if the cache hasn't been modified, do nothing to
     # save loads of time. While this will leave "dirty" entries in the cache,
     # it's still better than having to re-persist the possibly very large cache
     # if nothing has actually changed!
-    return unless dirty?
+    unless dirty?
+      LOG.debug('Declining to persist unmodified (i.e. not dirty) cache')
+      return
+    end
 
     # Remove expired values from the cache prior to dumping it so we won't waste
     # time and space storing and serializing expired entries.
     prune!
 
+    LOG.debug("Persisting cache to path #{@path}")
     @path.open('wb') do |f|
       # Since we control this, we know it's non-circular.
       json_text = JSON.fast_generate(@cache)
+
+      LOG.debug("Stringified cache JSON is #{json_text.bytesize} bytes")
 
       # GZip the data heavily since it can get quite large (100Mb or more!) and
       # compresses very well since it's mostly JSON and contains a lot of
       # human-generated text (Wikipedia articles, plot summaries, etc.).
       compressed_json_text = Zlib.gzip(json_text, level: Zlib::BEST_COMPRESSION)
 
+      LOG.debug do
+        "Compressed cache JSON string is #{compressed_json_text.bytesize} bytes, #{100.0 * compressed_json_text.bytesize / json_text.bytesize}% of original size"
+      end
+
       f.write(compressed_json_text)
     end
 
     # Once the cache has been persisted, it's no longer considered "dirty" since
     # it hasn't changed since the last write to disk.
+    LOG.debug('Marking persisted cache as non-dirty')
     @is_dirty = false
 
     self
@@ -949,6 +975,10 @@ class Cache
 
     @cache.each_pair do |key, entry|
       if entry_expired?(entry, now: now)
+        LOG.debug do
+          "Pruning entry for key #{key} from cache (expired as of #{entry_expiration_time{entry}}) and marking cache as dirty"
+        end
+
         # Only mark the cache as dirty if something is actually pruned from it.
         @is_dirty = true
         @cache.delete(key)
@@ -1036,11 +1066,18 @@ class Cache
 
   private
 
+  def entry_expiration_time(
+    entry, # Cache entry hash
+    now: Time.now.getutc # Time
+  )
+    Time.at(entry.fetch(:created_at) + entry.fetch(:ttl_seconds)).getutc
+  end
+
   def entry_expired?(
     entry, # Cache entry hash
     now: Time.now.getutc # Time
   )
-    now > Time.at(entry.fetch(:created_at) + entry.fetch(:ttl_seconds)).getutc
+    now > entry_expiration_time(entry, now: now)
   end
 end
 
@@ -1376,12 +1413,24 @@ def fetch(
       raise ArgumentError, "Invalid URI from path #{full_path.inspect}: #{err}"
     end
 
+  LOG.info do
+    parts = ["Fetching URI #{uri}"]
+    parts << " with data #{data.inspect}" if data
+    parts.join
+  end
+
   cache_key = digest(
     u, # The full request URL
     URI.encode_www_form(data || {}), # POST data for the request, if any
     format: :base64,
     length: 32
   )
+  LOG.debug do
+    parts = ["Looking up request to #{uri}"]
+    parts << " with data #{URI.encode_www_form(data)}" unless data.nil?
+    parts << " in cache"
+    parts.join
+  end
   cache.fetch(cache_key, ttl_seconds) do
     # Delay the fetch as necessary to enforce a minimum amount of time between
     # requests to any one host.
@@ -1392,10 +1441,15 @@ def fetch(
     earliest_next_fetch_start_time = last_fetch_end_time_for_host + FETCH_MIN_SECONDS_BETWEEN_REQUESTS
     now = Time.now.getutc
     if now < earliest_next_fetch_start_time
-      sleep(earliest_next_fetch_start_time - now)
+      wait_seconds = earliest_next_fetch_start_time - now
+      LOG.debug("Delaying for #{wait_seconds}s before next request to host #{uri.host}")
+
+      sleep(wait_seconds)
     end
 
     begin
+      method = data.nil? ? :GET : :POST
+
       # Don't allow things to take too long since we might be making a lot of
       # requests.
       res =
@@ -1408,17 +1462,25 @@ def fetch(
           write_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
           ssl_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
         ) do |http|
-          method = data.nil? ? :GET : :POST
           body_data =
             if data.nil?
               nil
             else
               URI.encode_www_form(data)
             end
+
+          LOG.debug do
+            parts = ["Response not found in cache, making #{method} request to URI #{uri}"]
+            parts << " with body data #{body_data}" if body_data
+            parts.join
+          end
+
           http.send_request(
             method,
             uri.request_uri,
             body_data,
+
+            # As a good netizen, we identify ourself unambiguously.
             { 'User-Agent' => VERSION_INFO }
           )
         end
@@ -1427,14 +1489,17 @@ def fetch(
       # mitigate transient failures.
 
       unless res.is_a?(Net::HTTPSuccess)
-        raise IOError, "Got HTTP #{res.code} from #{uri}: #{res.message}"
+        raise IOError, "Got HTTP #{res.code} from #{method} request to URI #{uri}: #{res.message}"
       end
 
       # Parse the body as JSON, the only response format we expect to receive.
       body = res.body
       begin
+        LOG.debug('Attempting to parse response body as JSON')
         JSON.parse(body, symbolize_names: true)
       rescue JSON::ParserError => err
+        LOG.warn('Failed initial parse of response body, retrying with corrected body')
+
         # Guess what? Sometimes, the API returns improperly-escaped JSON
         # strings!
         #
@@ -1464,7 +1529,7 @@ def fetch(
           corrected_body = body.gsub(/\\\\"/, '\\"')
           JSON.parse(corrected_body, symbolize_names: true)
         rescue JSON::ParserError => err
-          raise IOError, "Failed to parse HTTP response from #{uri}: #{err}"
+          raise IOError, "Failed to parse HTTP response from #{method} request to URI #{uri}: #{err}"
         end
       end
     ensure
@@ -1479,7 +1544,9 @@ def fetch(
       #
       # Note that we also do this for failed responses, which ensures that even
       # if failures are happening we're being nice to the API.
-      LAST_FETCH_END_TIMES_BY_HOST[uri.host] = Time.now.getutc
+      last_host_fetch_time = Time.now.getutc
+      LOG.debug("Setting last fetch time for host #{uri.host} to #{last_host_fetch_time}")
+      LAST_FETCH_END_TIMES_BY_HOST[uri.host] = last_host_fetch_time
     end
   end
 end
@@ -1584,6 +1651,8 @@ def fetch_station_affiliate_info(
   call_sign, # String, something like `KABCDT1`
   cache: Cache.new # Cache
 ) # Hash<String channel number, String affiliate name> | nil
+  LOG.info("Fetching station affiliations for channel call sign #{call_sign} and country #{country}")
+
   # TODO: Support Canada as well!
   return nil unless country == :USA
 
@@ -2247,6 +2316,8 @@ def fetch_providers(
   postal_code, # String, e.g. `12345` or `A1A 1A1`
   cache: Cache.new # Cache
 ) # Array<Provider>
+  LOG.info("Fetching providers for country #{country} and postal code #{postal_code}")
+
   provider_json = fetch(
     ZAP2IT_API_HOST,
     '/gapzap_webapi/api/Providers/getPostalCodeProviders',
@@ -2281,6 +2352,8 @@ def fetch_provider(
   provider_id, # String
   cache: Cache.new # Cache
 ) # Provider | nil
+  LOG.info("Fetching single provider id #{provider_id} for country #{country} and postal code #{postal_code}")
+
   providers = fetch_providers(
     country,
     postal_code,
@@ -2305,6 +2378,17 @@ def fetch_channels(
   channel_tokens: Set.new, # Enumerable<String>. If non-empty, channels to fetch
   cache: Cache.new # Cache
 ) # Array<Channel>
+  LOG.info do
+    channels_string =
+      if channel_tokens.empty?
+        'all channels'
+      else
+        "channels for tokens #{channel_tokens.to_a.sort.join(', ')}"
+      end
+
+    "Fetching #{channels_string} from provider #{provider} (time span: #{time_span_hours}h, date: #{date})"
+  end
+
   # We need fast random access to these.
   channel_tokens = channel_tokens.to_set
 
@@ -2397,6 +2481,10 @@ def fetch_channel(
   time_span_hours = 6, # 1 | 2 | 3 | 4 | 5 | 6
   cache: Cache.new # Cache
 ) # Channel | nil
+  LOG.info do
+    "Fetching single channel for token #{token} from provider #{provider} (time span: #{time_span_hours}h, date: #{date})"
+  end
+
   channels = fetch_channels(
     provider,
     date,
@@ -2460,6 +2548,8 @@ def fetch_program_details(
       .min(1)
       .parse(season_index)
   end
+
+  LOG.info("Fetching detailed program information for series id #{series_id}, program id #{program_id} (season index: #{season_index.inspect})")
 
   # The API only allows us to look up detailed information for a whole season at
   # a time. Since we often don't even know which season a particular episode
@@ -2663,6 +2753,8 @@ def fetch_lineup(
   end_date = start_date, # Time, but will be truncated to its date component
   cache: Cache.new # Cache
 )
+  LOG.info("Fetching program lineup channel #{channel} (start date: #{start_date}, end date: #{end_date})")
+
   start_date = truncate_time(start_date, TimeInterval::DAYS)
   end_date = truncate_time(end_date, TimeInterval::DAYS)
 
@@ -3033,8 +3125,19 @@ def main!
   LOG.level = config.log_level
   LOG.info("Logging configured for #{config.log_level.to_s.upcase}-level output")
 
+  LOG.debug { "Parsed program configuration:\n#{config}" }
+
   $output = config.output_file
+  LOG.debug("Directing standard output to #{$output}")
+
   cache = config.cache
+  LOG.debug do
+    if cache.path.nil?
+      "Using in-memory cache only"
+    else
+      "Loaded cache from #{cache.path}"
+    end
+  end
 
   # Output program help text.
   #
@@ -3042,24 +3145,32 @@ def main!
   # of any command; its presence anywhere in the arguments indicates the user
   # doesn't know what to do and needs our guidance!
   if config.return_help_text?
+    LOG.debug('Returning program help text')
+
     $output.puts(config.option_parser.help())
     return
   end
 
   # Output program version information.
   if config.return_version_info?
+    LOG.debug('Returning program version string')
+
     $output.puts(VERSION_INFO)
     return
   end
 
   # Output our XMLTV description.
   if config.return_description?
+    LOG.debug('Returning XMLTV description')
+
     $output.puts(XMLTV_DESCRIPTION)
     return
   end
 
   # Output our XMLTV capabilities.
   if config.return_capabilities?
+    LOG.debug('Returning XMLTV capabilities')
+
     XMLTV_CAPABILITIES.each do |capability|
       $output.puts(capability)
     end
@@ -3068,6 +3179,8 @@ def main!
 
   # Download and print out the configured lineup information.
   if config.return_providers?
+    LOG.debug('Displaying providers')
+
     country = config.require(:country)
     postal_code = config.require(:postal_code)
 
@@ -3083,6 +3196,8 @@ def main!
   # Download and print out a listing of the channels for the given provider
   # information.
   if config.return_channels?
+    LOG.debug('Displaying channels')
+
     country = config.require(:country)
     postal_code = config.require(:postal_code)
     provider_id = config.require(:provider_id)
@@ -3110,6 +3225,8 @@ def main!
   # Download and print out a listing of the channel lineups for the given
   # channels and times.
   if config.return_lineup?
+    LOG.debug('Displaying lineup')
+
     country = config.require(:country)
     postal_code = config.require(:postal_code)
     provider_id = config.require(:provider_id)
@@ -3159,7 +3276,12 @@ def main!
 rescue StandardError => err
   # If we explode for any reason, exit with an error status and log the error
   # appropriately.
-  LOG.error(err)
+  LOG.fatal(err)
+
+  # Re-raise the error if we're in debug mode. This gets us nice stack trace
+  # information.
+  raise if LOG.debug?
+
   exit 1
 ensure
   # Always attempt to persist the cache once we're done, assuming it got
@@ -3170,11 +3292,9 @@ ensure
   # that whatever _does_ end up in the cache was at least valid enough to have
   # been generated by the code.
   if cache.nil?
-    LOG.debug("Unable to persist a cache that hasn't been loaded.")
+    LOG.debug("Unable to persist a cache that doesn't exist")
   else
-    LOG.debug("Persisting cache to #{cache.path}...")
     cache.persist!
-    LOG.debug("Persisted cache to #{cache.path}")
   end
 end
 
