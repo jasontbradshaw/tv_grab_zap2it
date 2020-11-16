@@ -69,6 +69,33 @@ ZAP2IT_MAXIMUM_DAYS_TO_FETCH = 14
 # overload the local networks or any of the remote APIs we're using.
 FETCH_MIN_SECONDS_BETWEEN_REQUESTS = 0.5
 
+# A map of know rating values to their corresponding pictographic icons. The
+# icons are sourced from
+# https://en.wikipedia.org/wiki/TV_Parental_Guidelines#Ratings.
+RATINGS_TO_ICON_URLS =
+  begin
+    ratings_to_icon_urls = {
+      'Y' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/TV-Y_icon.svg/250px-TV-Y_icon.svg.png',
+      'Y7' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/TV-Y7_icon.svg/250px-TV-Y7_icon.svg.png',
+      'G' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/TV-G_icon.svg/250px-TV-G_icon.svg.png',
+      'PG' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/TV-PG_icon.svg/250px-TV-PG_icon.svg.png',
+      '14' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/TV-14_icon.svg/250px-TV-14_icon.svg.png',
+      'MA' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/TV-MA_icon.svg/250px-TV-MA_icon.svg.png',
+
+      # This is the same as `14`, but we get it in this form instead of just a
+      # literal number when no `TV-` prefix is present.
+      '14+' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/TV-14_icon.svg/250px-TV-14_icon.svg.png',
+    }
+
+    # Also prefix the ratings with `TV-` since they come to us in both prefixed
+    # and "naked" forms.
+    ratings_to_icon_urls.to_a.each do |(rating, url)|
+      ratings_to_icon_urls["TV-#{rating}"] = url
+    end
+
+    ratings_to_icon_urls.freeze
+  end
+
 # The name of the Wikipedia "template" that contains the information we're
 # looking for. This is basically a built-in directive for displaying information
 # about something in a standardized way, in our case a television station.
@@ -173,9 +200,9 @@ LOG = Logger.new(
   formatter: Proc.new do |severity, datetime, program_name, message|
     output_parts = []
 
-    # Only include "fancy" output information at the most verbose log level
+    # Only include "fancy" output information at the more verbose log levels
     # since it's expensive to compute.
-    if LOG.debug?
+    if LOG.info?
       severity_letter, severity_color =
         case severity
           when 'DEBUG' then ['D', Color::CYAN]
@@ -524,12 +551,16 @@ class Xml
     prev_thing = :tag
 
     @children.each do |child|
+      next if child.nil?
+
       if child.is_a?(String)
         parts << escape_text(child)
         prev_thing = :text
-      else
+      elsif child.is_a?(Xml)
         parts << child.to_s(depth: depth + 1, prev_thing: prev_thing)
         prev_thing = :tag
+      else
+        raise ArgumentError, "Unknown XML child type: #{child.class}"
       end
     end
 
@@ -763,7 +794,8 @@ class Program
     :tags,
     :genres,
     :original_release_date,
-    :is_movie
+    :is_movie,
+    :credits
 
   def initialize(
     channel: nil, # Channel
@@ -787,7 +819,8 @@ class Program
     is_live: nil, # Boolean
     is_premier: nil, # Boolean
     is_finale: nil, # Boolean
-    is_generic: nil # Boolean
+    is_generic: nil, # Boolean
+    credits: nil # Array<Credit info hash>
   )
     @channel = Arg
       .name('channel')
@@ -944,6 +977,12 @@ class Program
       .name('genres')
       .is_a(Array)
       .parse(genres)
+
+    # TODO: Validate these more thoroughly!
+    @credits = Arg
+      .name('credits')
+      .is_a(Array)
+      .parse(credits)
   end
 
   def movie?; @is_movie; end
@@ -989,6 +1028,25 @@ class Program
       children << Xml.new(:category, { lang: :en }, category_text)
     end
 
+    # Include any credits.
+    unless @credits.empty?
+      credits_xml = Xml.new(:credits, {}, *@credits.map do |credit|
+        type, name, role = credit.fetch_values(:type, :name, :role)
+        attrs = {}
+
+        # Add the `role` attribute, i.e. who they played, for actors whenever
+        # possible.
+        role = credit.fetch(:role)
+        if type == :actor && !role.nil?
+          attrs[:role] = role
+        end
+
+        Xml.new(type, attrs, name)
+      end)
+
+      children << credits_xml
+    end
+
     # Include the description tag last since it messes up pretty printing as
     # it contains raw text.
     if @description
@@ -1013,22 +1071,11 @@ class Program
       Xml.new(:value, {}, @rating)
     ]
 
-    # These icons are sourced from
-    # https://en.wikipedia.org/wiki/TV_Parental_Guidelines#Ratings.
-    ratings_to_icon_urls = {
-      'TV-Y' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/TV-Y_icon.svg/250px-TV-Y_icon.svg.png',
-      'TV-Y7' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/TV-Y7_icon.svg/250px-TV-Y7_icon.svg.png',
-      'TV-G' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/TV-G_icon.svg/250px-TV-G_icon.svg.png',
-      'TV-PG' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/TV-PG_icon.svg/250px-TV-PG_icon.svg.png',
-      'TV-14' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/TV-14_icon.svg/250px-TV-14_icon.svg.png',
-      'TV-MA' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/TV-MA_icon.svg/250px-TV-MA_icon.svg.png',
-    }
-
     # If the rating is one of the "standard" US FCC values, include an `icon`
     # tag for it and identify it as such.
-    if ratings_to_icon_urls.include?(@rating)
+    if RATINGS_TO_ICON_URLS.include?(@rating)
       attributes[:system] = 'TV parental guidelines'
-      children << Xml.new(:icon, {}, ratings_to_icon_urls[@rating])
+      children << Xml.new(:icon, {}, RATINGS_TO_ICON_URLS[@rating])
     end
 
     Xml.new(:rating, attributes, *children)
@@ -1198,7 +1245,7 @@ class Cache
     @cache.each_pair do |key, entry|
       if entry_expired?(entry, now: now)
         LOG.debug do
-          "Pruning entry for key #{key} from cache (expired as of #{entry_expiration_time{entry}}) and marking cache as dirty"
+          "Pruning entry for key #{key} from cache (expired as of #{entry_expiration_time(entry, now: now)}) and marking cache as dirty"
         end
 
         # Only mark the cache as dirty if something is actually pruned from it.
@@ -2745,6 +2792,14 @@ def get_lineup_date_cache_key(
   )
 end
 
+# Returns `true` when the given series id looks like that of a movie.
+def is_movie_id(
+  series_id # String
+) # Boolean
+  # Movies have series ids that start with `MV`!
+  /^MV/i.match?(series_id)
+end
+
 # Attempts to fetch and return detailed program information for the given
 # program/series combination. This works for both movies _and_ televsion shows!
 def fetch_program_details(
@@ -2881,7 +2936,33 @@ def fetch_program_details(
     )
   end
 
-  # We found our desired episode details and can parse them!
+  # Since we found the desired episode details, we can now fetch the general
+  # overview information for the series, which contains things like writers,
+  # directory, actors, etc. that we can use for program credits.
+  overview_info = fetch(
+    ZAP2IT_API_HOST,
+    '/api/program/overviewDetails',
+
+    data: {
+      programSeriesID: series_id,
+    },
+
+    cache: cache,
+    ttl_seconds: (
+      if is_movie_id(series_id)
+        # Movies are considered "done", so we can cache their information for a
+        # long time.
+        30 * TimeInterval::DAYS
+      else
+        # Cache TV series overview information for a shorter time than that for
+        # movies since many series are ongoing and may have changing cast and
+        # crew credits.
+        7 * TimeInterval::DAYS
+      end
+    ),
+  )
+
+  # Since we found our desired episode details, we can now parse them!
 
   # Can be the empty string when a rating is (presumably) unknown.
   display_rating = episode_details.fetch(:displayRating)
@@ -2949,6 +3030,63 @@ def fetch_program_details(
   is_premier = episode_details.fetch(:isPremier)
   is_finale = episode_details.fetch(:isFinale)
 
+  # The credits seem to always come to us in priority order, so we simply keep
+  # them in the order in which they were received.
+  cast_and_crew = [
+    *overview_info.fetch(:overviewTab).fetch(:cast),
+    *overview_info.fetch(:overviewTab).fetch(:crew),
+  ]
+  credits = cast_and_crew.map do |person|
+    role = person.fetch(:role)
+    name = person.fetch(:name)
+    character_name =
+      if (raw_character_name = person.fetch(:characterName).strip).empty?
+        nil
+      else
+        raw_character_name
+      end
+
+    # Attempt to map the "role" value we were given to a supported kind of XMLTV
+    # credit.
+    type =
+      if /director/i.match?(role)
+        :director
+      elsif /guest/i.match?(role)
+        :guest
+      elsif /actor/i.match?(role)
+        :actor
+      elsif /narrator/i.match?(role)
+        # Narrators are just special actors to us!
+        role = 'Narrator'
+        :actor
+      elsif /writer/i.match?(role)
+        :writer
+      elsif /adapter/i.match?(role)
+        :adapter
+      elsif /producer/i.match?(role)
+        :producer
+      elsif /composer/i.match?(role)
+        :composer
+      elsif /editor/i.match?(role)
+        :editor
+      elsif /presenter|host/i.match?(role)
+        :presenter
+      elsif /commentator/i.match?(role)
+        :commentator
+      else
+        # If we can't map the kind of credit this person should receive, call
+        # them a "guest" since it's better than nothing at all.
+        LOG.warn("Couldn't parse credit type for role #{role.inspect}, falling back to 'guest'")
+        :guest
+      end
+
+    {
+      type: type,
+      name: name,
+      role: character_name,
+    }
+  end.compact
+
   {
     # We use the id we were given since it may differ from the munged one the
     # episode info contains; we'll treat the input id as the canonical one.
@@ -2965,6 +3103,7 @@ def fetch_program_details(
     live?: is_live,
     premier?: is_premier,
     finale?: is_finale,
+    credits: credits,
   }
 end
 
@@ -3123,6 +3262,7 @@ def fetch_lineup(
 
       # These don't show up at all in the basic info :(
       genres = []
+      credits = []
 
       raw_release_year = basic_program_info.fetch(:program).fetch(:releaseYear)
       original_release_date =
@@ -3132,12 +3272,10 @@ def fetch_lineup(
           Date.parse("#{raw_release_year.rjust(4, '0')}-01-01").to_time.getutc
         end
 
-      # Movies have series ids that start with `MV`!
-      is_movie = /^MV/i.match?(basic_program_info.fetch(:seriesId))
-
       # Generic comes in as `"0"` or `"1"` and appears to indicate things like
       # "paid programming".
       is_generic = basic_program_info.fetch(:program).fetch(:isGeneric) == '1'
+      is_movie = is_movie_id(basic_program_info.fetch(:seriesId))
 
       # These "bits" are special in that in the basic info they come back as
       # tags, but in the enhanced info they come back as their own individual
@@ -3200,6 +3338,7 @@ def fetch_lineup(
         # These don't show up at all in the "basic" info, so we _must_ use those
         # that come back from the enhanced info.
         genres = enhanced_program_info.fetch(:genres)
+        credits = enhanced_program_info.fetch(:credits)
       end
 
       Program.new(
@@ -3224,6 +3363,7 @@ def fetch_lineup(
         is_premier: is_premier,
         is_finale: is_finale,
         is_generic: is_generic,
+        credits: credits,
 
         # TODO: Where would we find this?
         previously_shown_time: nil,
