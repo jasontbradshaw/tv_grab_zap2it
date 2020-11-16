@@ -53,7 +53,7 @@ RELEASE =
 VERSION_INFO = "#{PROGRAM_NAME} v#{VERSION} (#{RELEASE})"
 
 # The number of seconds to wait for any given HTTP request to finish.
-HTTP_REQUEST_TIMEOUT_SECONDS = 15
+HTTP_REQUEST_TIMEOUT_SECONDS = 60
 
 XMLTV_DESCRIPTION = 'USA/Canada (zap2it.com)'
 XMLTV_CAPABILITIES = %w[baseline cache].freeze
@@ -1657,6 +1657,11 @@ end
 # this to enforce a minimum time between HTTP requests to a given host.
 LAST_FETCH_END_TIMES_BY_HOST = Hash.new { Time.at(0).getutc }
 
+# A cache for requests that fail a full retry cycle. We use this to effectively
+# skip them if they've failed in this manner recently so as not to clog up the
+# request pipeline needlessly with likely-failing requests.
+FETCH_RETRY_FAILURE_TIMES_BY_CACHE_KEY = Hash.new { Time.at(0).getutc }
+
 # Makes a GET or POST request to some host/path combination and returns the JSON
 # response with symbolized keys. If the request fails or its response body can't
 # be parsed, raises an `IOError`.
@@ -1665,7 +1670,8 @@ def fetch(
   query: nil, # Hash<Symbol, any> | nil
   data: nil, # Hash<Symbol | String, JSON> | nil
   cache: Cache.new, # Cache
-  ttl_seconds: nil # Integer
+  ttl_seconds: nil, # Integer
+  should_retry_posts: false # Boolean, whether POST requests should be retried
 ) # JSON
   full_path = File.join(*path_parts.map(&:to_s))
 
@@ -1694,6 +1700,15 @@ def fetch(
     format: :base64,
     length: 32
   )
+
+  # If a request has failed a full retry cycle recently, ignore it and
+  # immediately raise an appropriate error so we don't clog up the request
+  # pipeline with always-failing requests.
+  now = Time.now.getutc
+  if FETCH_RETRY_FAILURE_TIMES_BY_CACHE_KEY[cache_key] > now - (5 * TimeInterval::MINUTES)
+    raise IOError, "Fast-failing HTTP request to URI #{uri} since it failed a full retry cycle recently"
+  end
+
   LOG.debug do
     parts = ["Looking up request to #{uri}"]
     parts << " with data #{URI.encode_www_form(data)}" unless data.nil?
@@ -1708,7 +1723,6 @@ def fetch(
     # values aren't unnecessarily delayed.
     last_fetch_end_time_for_host = LAST_FETCH_END_TIMES_BY_HOST[uri.host]
     earliest_next_fetch_start_time = last_fetch_end_time_for_host + FETCH_MIN_SECONDS_BETWEEN_REQUESTS
-    now = Time.now.getutc
     if now < earliest_next_fetch_start_time
       wait_seconds = earliest_next_fetch_start_time - now
       LOG.debug("Delaying for #{wait_seconds}s before next request to host #{uri.host}")
@@ -1719,47 +1733,83 @@ def fetch(
     begin
       method = data.nil? ? :GET : :POST
 
+      LOG.debug("Response not found in cache, making #{method} request to URI #{uri}")
+
       # Don't allow things to take too long since we might be making a lot of
       # requests.
       res =
-        Net::HTTP.start(
-          uri.host,
-          uri.port,
-          use_ssl: u.scheme == 'https',
-          open_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
-          read_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
-          write_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
-          ssl_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
-        ) do |http|
-          body_data =
-            if data.nil?
-              nil
-            else
-              URI.encode_www_form(data)
-            end
+        begin
+          # This is the first attempt, so we count from 1 instead of 0.
+          attempts ||= 1
 
-          LOG.debug do
-            parts = ["Response not found in cache, making #{method} request to URI #{uri}"]
-            parts << " with body data #{body_data}" if body_data
-            parts.join
+          response = Net::HTTP.start(
+            uri.host,
+            uri.port,
+            use_ssl: u.scheme == 'https',
+            open_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
+            read_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
+            write_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
+            ssl_timeout: HTTP_REQUEST_TIMEOUT_SECONDS,
+          ) do |http|
+            body_data =
+              if data.nil?
+                nil
+              else
+                URI.encode_www_form(data)
+              end
+
+            http.send_request(
+              method,
+              uri.request_uri,
+              body_data,
+
+              # As a good netizen, we identify ourself unambiguously.
+              { 'User-Agent' => VERSION_INFO }
+            )
           end
 
-          http.send_request(
-            method,
-            uri.request_uri,
-            body_data,
+          # According to the docs, simply calling this method should raise a
+          # HTTP error if the result wasn't a success.
+          response.value
 
-            # As a good netizen, we identify ourself unambiguously.
-            { 'User-Agent' => VERSION_INFO }
-          )
+          response
+        rescue \
+            Net::HTTPBadResponse,
+            Net::HTTPFatalError,
+            Net::HTTPServerError,
+            Net::HTTPTooManyRequests,
+            Net::OpenTimeout,
+            Net::ReadTimeout,
+            Net::WriteTimeout \
+            => err
+          # If we've failed too many times or aren't supposed to retry, give up.
+          if attempts > 5 || (method == :POST && !should_retry_posts)
+            LOG.debug do
+              if method == :POST && !should_retry_posts
+                "Declining to retry POST request to URI #{uri}"
+              else
+                "Failed to make HTTP #{method} request to URI #{uri} after #{attempts} attempts"
+              end
+            end
+
+            # Mark this request as having failed a full retry cycle recently so
+            # we can skip it if it comes up again in the near future.
+            FETCH_RETRY_FAILURE_TIMES_BY_CACHE_KEY[cache_key] = Time.now.getutc
+
+            # Convert to `IOError` so we can easily handle this in the caller if
+            # desired.
+            raise IOError, "Failed to make HTTP #{method} request to URI #{uri}: #{err}"
+          end
+
+          LOG.warn("Got non-successful HTTP response (#{err}); retrying (attempts so far: #{attempts})")
+
+          backoff_seconds = 2 ** attempts
+          LOG.debug("Backing off for #{backoff_seconds}s before retrying HTTP #{method} request to URI #{uri}")
+          sleep(backoff_seconds)
+
+          attempts += 1
+          retry
         end
-
-      # TODO: Retry retry-able errors a handful of times with backoff so we can
-      # mitigate transient failures.
-
-      unless res.is_a?(Net::HTTPSuccess)
-        raise IOError, "Got HTTP #{res.code} from #{method} request to URI #{uri}: #{res.message}"
-      end
 
       # Parse the body as JSON, the only response format we expect to receive.
       body = res.body
@@ -2851,27 +2901,37 @@ def fetch_program_details(
   # TODO: "Local programming" (and presumably other things) have a series id but
   # making this request doesn't return anything _at all_, i.e. returns zero
   # bytes, when we attempt to fetch it. Deal with this!
-  season_info = fetch(
-    ZAP2IT_API_HOST,
-    '/gapzap_webapi/api/program/PostEpisodeGuide',
+  season_info =
+    begin
+      fetch(
+        ZAP2IT_API_HOST,
+        '/gapzap_webapi/api/program/PostEpisodeGuide',
 
-    data: {
-      # A magical required value!
-      aid: :gapzap,
+        data: {
+          # A magical required value!
+          aid: :gapzap,
 
-      # Essentially, "fetch all the data in a single page". This seems to work
-      # without issue in all attempted cases, so... we don't have to paginate!
-      pageNo: 1,
-      pageSize: 999,
+          # Essentially, "fetch all the data in a single page". This seems to work
+          # without issue in all attempted cases, so... we don't have to paginate!
+          pageNo: 1,
+          pageSize: 999,
 
-      # Fetch the series/season we care about right now.
-      programSeriesID: series_id,
-      season: season_index || -1, # Convert `nil` to `-1` for "latest season"
-    },
+          # Fetch the series/season we care about right now.
+          programSeriesID: series_id,
+          season: season_index || -1, # Convert `nil` to `-1` for "latest season"
+        },
 
-    cache: cache,
-    ttl_seconds: ttl_seconds,
-  )
+        should_retry_posts: true,
+        cache: cache,
+        ttl_seconds: ttl_seconds,
+      )
+    rescue IOError => err
+      # If one of these requests perma-fails, return `nil` and pretend we simply
+      # couldn't find the info. Since this info is nice-to-have, we can proceed
+      # without it.
+      LOG.warn("Detailed info request for series id #{series_id}, program id #{program_id}, season index #{season_index.inspect} failed: '#{err}'; returning nothing instead of exploding")
+      return nil
+    end
 
   episodes_info = season_info
     .fetch(:episodeGuideTab)
@@ -2939,28 +2999,38 @@ def fetch_program_details(
   # Since we found the desired episode details, we can now fetch the general
   # overview information for the series, which contains things like writers,
   # directory, actors, etc. that we can use for program credits.
-  overview_info = fetch(
-    ZAP2IT_API_HOST,
-    '/api/program/overviewDetails',
+  overview_info =
+    begin
+      fetch(
+        ZAP2IT_API_HOST,
+        '/api/program/overviewDetails',
 
-    data: {
-      programSeriesID: series_id,
-    },
+        data: {
+          programSeriesID: series_id,
+        },
 
-    cache: cache,
-    ttl_seconds: (
-      if is_movie_id(series_id)
-        # Movies are considered "done", so we can cache their information for a
-        # long time.
-        30 * TimeInterval::DAYS
-      else
-        # Cache TV series overview information for a shorter time than that for
-        # movies since many series are ongoing and may have changing cast and
-        # crew credits.
-        7 * TimeInterval::DAYS
-      end
-    ),
-  )
+        should_retry_posts: true,
+        cache: cache,
+        ttl_seconds: (
+          if is_movie_id(series_id)
+            # Movies are considered "done", so we can cache their information for a
+            # long time.
+            30 * TimeInterval::DAYS
+          else
+            # Cache TV series overview information for a shorter time than that for
+            # movies since many series are ongoing and may have changing cast and
+            # crew credits.
+            7 * TimeInterval::DAYS
+          end
+        ),
+      )
+    rescue IOError => err
+      LOG.warn("Overview info request for series id #{series_id} failed with error '#{err}'; proceeding without it")
+
+      # If we can't fetch this data, ignore it since it's not critical that we
+      # get it.
+      nil
+    end
 
   # Since we found our desired episode details, we can now parse them!
 
@@ -3032,60 +3102,63 @@ def fetch_program_details(
 
   # The credits seem to always come to us in priority order, so we simply keep
   # them in the order in which they were received.
-  cast_and_crew = [
-    *overview_info.fetch(:overviewTab).fetch(:cast),
-    *overview_info.fetch(:overviewTab).fetch(:crew),
-  ]
-  credits = cast_and_crew.map do |person|
-    role = person.fetch(:role)
-    name = person.fetch(:name)
-    character_name =
-      if (raw_character_name = person.fetch(:characterName).strip).empty?
-        nil
-      else
-        raw_character_name
-      end
+  credits = []
+  unless overview_info.nil?
+    cast_and_crew = [
+      *overview_info.fetch(:overviewTab).fetch(:cast),
+      *overview_info.fetch(:overviewTab).fetch(:crew),
+    ]
+    credits = cast_and_crew.map do |person|
+      role = person.fetch(:role)
+      name = person.fetch(:name)
+      character_name =
+        if (raw_character_name = person.fetch(:characterName).strip).empty?
+          nil
+        else
+          raw_character_name
+        end
 
-    # Attempt to map the "role" value we were given to a supported kind of XMLTV
-    # credit.
-    type =
-      if /director/i.match?(role)
-        :director
-      elsif /guest/i.match?(role)
-        :guest
-      elsif /actor/i.match?(role)
-        :actor
-      elsif /narrator/i.match?(role)
-        # Narrators are just special actors to us!
-        role = 'Narrator'
-        :actor
-      elsif /writer/i.match?(role)
-        :writer
-      elsif /adapter/i.match?(role)
-        :adapter
-      elsif /producer/i.match?(role)
-        :producer
-      elsif /composer/i.match?(role)
-        :composer
-      elsif /editor/i.match?(role)
-        :editor
-      elsif /presenter|host/i.match?(role)
-        :presenter
-      elsif /commentator/i.match?(role)
-        :commentator
-      else
-        # If we can't map the kind of credit this person should receive, call
-        # them a "guest" since it's better than nothing at all.
-        LOG.warn("Couldn't parse credit type for role #{role.inspect}, falling back to 'guest'")
-        :guest
-      end
+      # Attempt to map the "role" value we were given to a supported kind of
+      # XMLTV credit.
+      type =
+        if /director/i.match?(role)
+          :director
+        elsif /guest/i.match?(role)
+          :guest
+        elsif /actor/i.match?(role)
+          :actor
+        elsif /narrator/i.match?(role)
+          # Narrators are just special actors to us!
+          role = 'Narrator'
+          :actor
+        elsif /writer/i.match?(role)
+          :writer
+        elsif /adapter/i.match?(role)
+          :adapter
+        elsif /producer/i.match?(role)
+          :producer
+        elsif /composer/i.match?(role)
+          :composer
+        elsif /editor/i.match?(role)
+          :editor
+        elsif /presenter|host/i.match?(role)
+          :presenter
+        elsif /commentator/i.match?(role)
+          :commentator
+        else
+          # If we can't map the kind of credit this person should receive, call
+          # them a "guest" since it's better than nothing at all.
+          LOG.warn("Couldn't parse credit type for role #{role.inspect}, falling back to 'guest'")
+          :guest
+        end
 
-    {
-      type: type,
-      name: name,
-      role: character_name,
-    }
-  end.compact
+      {
+        type: type,
+        name: name,
+        role: character_name,
+      }
+    end.compact
+  end
 
   {
     # We use the id we were given since it may differ from the munged one the
@@ -3202,6 +3275,7 @@ def fetch_lineup(
         timestamp: truncate_time(now, TimeInterval::DAYS).to_i
       },
 
+      should_retry_posts: true,
       cache: cache,
       ttl_seconds: ttl_seconds,
     )
