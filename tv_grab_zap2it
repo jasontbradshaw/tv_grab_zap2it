@@ -1032,16 +1032,16 @@ class Program
     unless @credits.empty?
       credits_xml = Xml.new(:credits, {}, *@credits.map do |credit|
         type, name, role = credit.fetch_values(:type, :name, :role)
-        attrs = {}
+        credits_attrs = {}
 
         # Add the `role` attribute, i.e. who they played, for actors whenever
         # possible.
         role = credit.fetch(:role)
         if type == :actor && !role.nil?
-          attrs[:role] = role
+          credits_attrs[:role] = role
         end
 
-        Xml.new(type, attrs, name)
+        Xml.new(type, credits_attrs, name)
       end)
 
       children << credits_xml
