@@ -3759,7 +3759,9 @@ def main!
       :tv,
       {
         source_info_url: "https://tvlistings.zap2it.com",
-        source_info_name: 'zap2it'
+        source_info_name: 'zap2it',
+        generator_info_name: PROGRAM_NAME,
+        generator_info_url: 'https://github.com/jasontbradshaw/tv_grab_zap2it',
       },
       *channels.map(&:to_xml),
       *programs.map(&:to_xml),
