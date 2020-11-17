@@ -1020,6 +1020,19 @@ class Program
       children << Xml.new(:sub_title, { lang: :en }, @secondary_title)
     end
 
+    if @original_release_date
+      # Movie release dates are only precise to the year, while television shows
+      # are precise to the day; this is just how the data comes to us!
+      date_format =
+        if movie?
+          '%Y'
+        else
+          '%Y-%m-%d'
+        end
+
+      children << Xml.new(:date, {}, @original_release_date.strftime(date_format))
+    end
+
     children << rating_xml()
 
     # Include both genres and tags as categories since it makes sense to be
