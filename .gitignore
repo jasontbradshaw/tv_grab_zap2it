@@ -3,3 +3,4 @@ cache.json*
 
 # The giant "example" XML file from the plugin that inspired this one.
 xmltv.xml
+xmltv.*.xml
