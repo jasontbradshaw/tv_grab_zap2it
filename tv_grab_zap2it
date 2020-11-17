@@ -764,7 +764,8 @@ class Channel
   def to_xml
     Xml.new(:channel, { id: xml_id() }, *[
       Xml.new(:icon, { src: @image_url }),
-      Xml.new(:display_name, {}, @name),
+      @name && Xml.new(:display_name, {}, @name),
+      Xml.new(:display_name, {}, "#{@number} #{@call_sign}"),
       Xml.new(:display_name, {}, @call_sign),
       Xml.new(:display_name, {}, @number),
     ])
