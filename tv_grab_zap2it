@@ -758,7 +758,7 @@ class Channel
     # See https://tools.ietf.org/html/rfc2838 for more information about this id
     # format. Since we can't really determine the actual "owner" of the network,
     # we attribute it to zap2it via their internal id instead.
-    "tv:#{id}.zap2it.com"
+    "#{id}.zap2it.com"
   end
 
   def to_xml
