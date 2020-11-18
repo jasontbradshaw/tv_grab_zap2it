@@ -1083,11 +1083,6 @@ class Program
       tags_text_parts << "New" if new?
       tags_text = tags_text_parts.join(', ')
 
-      season_text = [
-        @season && "Season #{@season}",
-        @episode && "Episode #{@episode}",
-      ].compact.join(', ')
-
       original_release_date_text =
         if @original_release_date
           date_string = @original_release_date.strftime(original_release_date_format)
@@ -1110,7 +1105,6 @@ class Program
       bonus_text =
         [
           tags_text,
-          season_text,
           original_release_date_text,
         ]
         .compact
