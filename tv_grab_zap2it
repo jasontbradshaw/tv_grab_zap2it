@@ -818,7 +818,7 @@ class Program
     is_movie: nil, # Boolean
     is_new: nil, # Boolean
     is_live: nil, # Boolean
-    is_premier: nil, # Boolean
+    is_premiere: nil, # Boolean
     is_finale: nil, # Boolean
     is_generic: nil, # Boolean
     credits: nil # Array<Credit info hash>
@@ -952,10 +952,10 @@ class Program
       .one_of(true, false)
       .parse(is_live)
 
-    @is_premier = Arg
-      .name('is_premier')
+    @is_premiere = Arg
+      .name('is_premiere')
       .one_of(true, false)
-      .parse(is_premier)
+      .parse(is_premiere)
 
     @is_finale = Arg
       .name('is_finale')
@@ -989,7 +989,7 @@ class Program
   def movie?; @is_movie; end
   def new?; @is_new; end
   def live?; @is_live; end
-  def premier?; @is_premier; end
+  def premiere?; @is_premiere; end
   def finale?; @is_finale; end
   def generic?; @is_generic; end
 
@@ -1031,17 +1031,16 @@ class Program
       children << Xml.new(:sub_title, { lang: :en }, @secondary_title)
     end
 
+    original_release_date_format =
+      if movie?
+        '%Y'
+      else
+        '%Y-%m-%d'
+      end
     if @original_release_date
       # Movie release dates are only precise to the year, while television shows
       # are precise to the day; this is just how the data comes to us!
-      date_format =
-        if movie?
-          '%Y'
-        else
-          '%Y-%m-%d'
-        end
-
-      children << Xml.new(:date, {}, @original_release_date.strftime(date_format))
+      children << Xml.new(:date, {}, @original_release_date.strftime(original_release_date_format))
     end
 
     children << rating_xml()
@@ -1075,12 +1074,60 @@ class Program
     # Include the description tag last since it messes up pretty printing as
     # it contains raw text.
     if @description
-      children << Xml.new(:desc, { lang: :en }, @description)
+      # Add "bonus" info into the description, e.g. original air date,
+      # season/episode info, "New", etc.
+      tags_text_parts = []
+      tags_text_parts << "Finale" if finale?
+      tags_text_parts << "Premiere" if premiere?
+      tags_text_parts << "Live" if live?
+      tags_text_parts << "New" if new?
+      tags_text = tags_text_parts.join(', ')
+
+      season_text = [
+        @season && "Season #{@season}",
+        @episode && "Episode #{@episode}",
+      ].compact.join(', ')
+
+      original_release_date_text =
+        if @original_release_date
+          date_string = @original_release_date.strftime(original_release_date_format)
+
+          if movie?
+            "Released in #{date_string}"
+          else
+            # When the "first aired" date is the same as the date of the episode
+            # itself, don't add this info as it's completely redundant.
+            if date_string != @start_time.strftime(original_release_date_format)
+              "First aired #{date_string}"
+            else
+              nil
+            end
+          end
+        else
+          nil
+        end
+
+      bonus_text =
+        [
+          tags_text,
+          season_text,
+          original_release_date_text,
+        ]
+        .compact
+        .map(&:strip)
+        .reject(&:empty?)
+        .join(" · ")
+
+      children << Xml.new(
+        :desc,
+        { lang: :en },
+        "#{bonus_text}\n#{@description}".strip
+      )
     end
 
     children << Xml.new(:last_chance) if finale?
     children << Xml.new(:new) if new?
-    children << Xml.new(:premiere) if premier?
+    children << Xml.new(:premiere) if premiere?
 
     Xml.new(:programme, attrs, *children)
   end
@@ -3119,7 +3166,7 @@ def fetch_program_details(
 
   is_new = episode_details.fetch(:isNew)
   is_live = episode_details.fetch(:isLive)
-  is_premier = episode_details.fetch(:isPremier)
+  is_premiere = episode_details.fetch(:isPremier)
   is_finale = episode_details.fetch(:isFinale)
 
   # The credits seem to always come to us in priority order, so we simply keep
@@ -3196,7 +3243,7 @@ def fetch_program_details(
     genres: genres,
     new?: is_new,
     live?: is_live,
-    premier?: is_premier,
+    premiere?: is_premiere,
     finale?: is_finale,
     credits: credits,
   }
@@ -3383,12 +3430,12 @@ def fetch_lineup(
       flag_tags = [
         new_tag = 'New',
         live_tag = 'Live',
-        premier_tag = 'Premier',
+        premiere_tag = 'Premiere',
         finale_tag = 'Finale',
       ]
       is_new = basic_program_info.fetch(:tag).include?(new_tag)
       is_live = basic_program_info.fetch(:tag).include?(live_tag)
-      is_premier = basic_program_info.fetch(:tag).include?(premier_tag)
+      is_premiere = basic_program_info.fetch(:tag).include?(premiere_tag)
       is_finale = basic_program_info.fetch(:tag).include?(finale_tag)
 
       # Omit any of the "special" tags we just checked for since they're
@@ -3412,7 +3459,7 @@ def fetch_lineup(
         # We "merge" these basic values with the enhanced ones.
         is_new = is_new || enhanced_program_info.fetch(:new?)
         is_live = is_live || enhanced_program_info.fetch(:live?)
-        is_premier = is_premier || enhanced_program_info.fetch(:premier?)
+        is_premiere = is_premiere || enhanced_program_info.fetch(:premiere?)
         is_finale = is_finale || enhanced_program_info.fetch(:finale?)
 
         # If any of these values seem to be more "substantial" than the ones we
@@ -3456,7 +3503,7 @@ def fetch_lineup(
         is_movie: is_movie,
         is_new: is_new,
         is_live: is_live,
-        is_premier: is_premier,
+        is_premiere: is_premiere,
         is_finale: is_finale,
         is_generic: is_generic,
         credits: credits,
