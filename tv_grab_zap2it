@@ -1007,12 +1007,23 @@ class Program
     end
 
     if @season && @episode
-      id =
+      # Add the `xmltv_ns` episode information as this seems to be treated as
+      # "most authoritative" by e.g. Kodi.
+      xmltvns_episode = [
+        (@season - 1).to_s,
+        '.',
+        (@episode - 1).to_s,
+        '.',
+      ].join
+      children << Xml.new(:episode_num, { system: :xmltv_ns }, xmltvns_episode)
+
+      # Use a more human-friendly format as well, i.e. something like S01E02.
+      onscreen_episode =
         [
           "S#{@season.to_s.rjust(2, '0')}",
           "E#{@episode.to_s.rjust(2, '0')}",
       ].join
-      children << Xml.new(:episode_num, { system: :onscreen }, id)
+      children << Xml.new(:episode_num, { system: :onscreen }, onscreen_episode)
     end
 
     children << Xml.new(:title, { lang: :en }, @title)
