@@ -2903,18 +2903,15 @@ def fetch_program_details(
 
   # When fetching the latest season, we don't cache the result for very long.
   # This ensures that unfinished seasons are re-checked regularly, but "old"
-  # seasons are cached for a good long time since presumably they won't change
-  # very often at all!
+  # seasons and movies are cached for a good long time since presumably they
+  # won't change very often at all!
   ttl_seconds =
-    if season_index.nil?
-      TimeInterval::DAYS
-    else
+    if is_movie_id(series_id) || !season_index.nil?
       90 * TimeInterval::DAYS
+    else
+      TimeInterval::DAYS
     end
 
-  # TODO: "Local programming" (and presumably other things) have a series id but
-  # making this request doesn't return anything _at all_, i.e. returns zero
-  # bytes, when we attempt to fetch it. Deal with this!
   season_info =
     begin
       fetch(
