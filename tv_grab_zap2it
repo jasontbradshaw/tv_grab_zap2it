@@ -1090,12 +1090,12 @@ class Program
           if movie?
             "Released in #{date_string}"
           else
-            # When the "first aired" date is the same as the date of the episode
-            # itself, don't add this info as it's completely redundant.
-            if date_string != @start_time.strftime(original_release_date_format)
-              "First aired #{date_string}"
-            else
+            # When the episode is "new", there's no point in adding the "first
+            # aired" text since, well, it first aired in the current time slot!
+            if new?
               nil
+            else
+              "First aired #{date_string}"
             end
           end
         else
