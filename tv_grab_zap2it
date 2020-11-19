@@ -1048,6 +1048,9 @@ class Program
     # Include both genres and tags as categories since it makes sense to be
     # able to filter by any combination of the two, e.g. for queries like
     # "HDTV Sports".
+    #
+    # Note that we list genres first since many things will only accept the very
+    # first tag we present to them, and we want that to be the primary genre.
     [*@genres, *@tags].each do |category_text|
       children << Xml.new(:category, { lang: :en }, category_text)
     end
@@ -3418,19 +3421,22 @@ def fetch_lineup(
       # tags, but in the enhanced info they come back as their own individual
       # flags. We search the basic info for any tags that indicate these flags,
       # then Boolean "or" them with any that come back from the enhanced info.
-      #
-      # TODO: Verify each tag name. I've only actually _seen_ `New`, so the rest
-      # of the tag names are guesses for now!
       flag_tags = [
         new_tag = 'New',
         live_tag = 'Live',
-        premiere_tag = 'Premiere',
         finale_tag = 'Finale',
+
+        # Cover all our bases in case the API's spelling isn't consistent.
+        premiere_tag_1 = 'Premier',
+        premiere_tag_2 = 'Premiere',
       ]
       is_new = basic_program_info.fetch(:tag).include?(new_tag)
       is_live = basic_program_info.fetch(:tag).include?(live_tag)
-      is_premiere = basic_program_info.fetch(:tag).include?(premiere_tag)
       is_finale = basic_program_info.fetch(:tag).include?(finale_tag)
+      is_premiere = (
+        basic_program_info.fetch(:tag).include?(premiere_tag_1) ||
+        basic_program_info.fetch(:tag).include?(premiere_tag_2)
+      )
 
       # Omit any of the "special" tags we just checked for since they're
       # redundant if included in both places.
@@ -3439,11 +3445,19 @@ def fetch_lineup(
       # _better_ than the tags we get from the enhanced info! The "enhanced"
       # tags come in something like `STEREO|CC` and have to be manually cleaned,
       # so we prefer the "basic" tags instead.
-      tags = (basic_program_info.fetch(:tag, [])).reject { |t| flag_tags.include?(t) }
+      tags = (basic_program_info.fetch(:tag, []))
+        .compact
+        .reject { |t| flag_tags.include?(t) }
+        .map(&:strip)
+        .reject(&:empty?)
 
       # Now, fetch detailed program info if possible and improve what we've
       # already gathers.
-      enhanced_program_info = fetch_program_details(series_id, program_id, cache: cache)
+      enhanced_program_info = fetch_program_details(
+        series_id,
+        program_id,
+        cache: cache,
+      )
       unless enhanced_program_info.nil?
         # We prefer the detailed version of this data if available, otherwise we
         # fall back to the "basic" version
@@ -3475,6 +3489,9 @@ def fetch_lineup(
         # These don't show up at all in the "basic" info, so we _must_ use those
         # that come back from the enhanced info.
         genres = enhanced_program_info.fetch(:genres)
+          .compact
+          .map(&:strip)
+          .reject(&:empty?)
         credits = enhanced_program_info.fetch(:credits)
       end
 
