@@ -96,6 +96,103 @@ RATINGS_TO_ICON_URLS =
     ratings_to_icon_urls.freeze
   end
 
+# All the ETSI genre categories we use when mapping zap2it's genres to these
+# "proper" ones that are understood by e.g. Kodi and other common software.
+#
+# All of these values come from Table 28 (page 43) in
+# https://www.etsi.org/deliver/etsi_en/300400_300499/300468/01.14.01_60/en_300468v011401p.pdf
+ETSI_GENRE_MOVIE_DRAMA = 'Movie/Drama (general)'
+ETSI_GENRE_DETECTIVE_TRHILLER = 'Detective/Thriller'
+ETSI_GENRE_ADVENTURE_WESTERN_WAR = 'Adventure/Western/War'
+ETSI_GENRE_SCIENCE_FICTION_FANTASY_HORROR = 'Science fiction/Fantasy/Horror'
+ETSI_GENRE_COMEDY = 'Comedy'
+ETSI_GENRE_SOAP_MELODRAMA_FOLKLORIC = 'Soap/Melodrama/Folkloric'
+ETSI_GENRE_ROMANCE = 'Romance'
+ETSI_GENRE_SERIOUS_CLASSICAL_RELIGIOUS_HISTORICAL_MOVIE_DRAMA = 'Serious/Classical/Religious/Historical movie/Drama'
+ETSI_GENRE_ADULT_MOVIE_DRAMA = 'Adult movie/Drama'
+
+ETSI_GENRE_NEWS_CURRENT_AFFAIRS = 'News/Current affairs (general)'
+ETSI_GENRE_NEWS_WEATHER_REPORT = 'News/Weather report'
+ETSI_GENRE_NEWS_MAGAZINE = 'News magazine'
+ETSI_GENRE_DOCUMENTARY = 'Documentary'
+ETSI_GENRE_DISCUSSION_INTERVIEW_DEBATE = 'Discussion/Interview/Debate'
+
+ETSI_GENRE_SHOW_GAME_SHOW = 'Show/Game show (general)'
+ETSI_GENRE_GAME_SHOW_QUIZ_CONTEST = 'Game show/Quiz/Contest'
+ETSI_GENRE_VARIETY_SHOW = 'Variety show'
+ETSI_GENRE_TALK_SHOW = 'Talk show'
+
+ETSI_GENRE_SPORTS = 'Sports (general)'
+ETSI_GENRE_SPECIAL_EVENTS = 'Special events (Olympic Games, World Cup, etc.)'
+ETSI_GENRE_SPORTS_MAGAZINES = 'Sports magazines'
+ETSI_GENRE_FOOTBALL_SOCCER = 'Football/Soccer'
+ETSI_GENRE_TENNIS_SQUASH = 'Tennis/Squash'
+ETSI_GENRE_TEAM_SPORTS_EXCLUDING_FOOTBALL = 'Team sports (excluding football)'
+ETSI_GENRE_ATHLETICS = 'Athletics'
+ETSI_GENRE_MOTOR_SPORT = 'Motor sport'
+ETSI_GENRE_WATER_SPORT = 'Water sport'
+ETSI_GENRE_WINTER_SPORTS = 'Winter sports'
+ETSI_GENRE_EQUESTRIAN = 'Equestrian'
+ETSI_GENRE_MARTIAL_SPORTS = 'Martial sports'
+
+ETSI_GENRE_CHILDRENS_YOUTH_PROGRAMS = "Children's/Youth programmes (general)"
+ETSI_GENRE_PRESCHOOL_CHILDRENS_PROGRAMS = "Pre-school children's programmes"
+ETSI_GENRE_ENTERTAINMENT_PROGRAMMES_FOR_6_TO_14 = 'Entertainment programmes for 6 to 14'
+ETSI_GENRE_ENTERTAINMENT_PROGRAMMES_FOR_10_TO_16 = 'Entertainment programmes for 10 to 16'
+ETSI_GENRE_INFORMATIONAL_EDUCATIONAL_SCHOOL_PROGRAMMES = 'Informational/Educational/School programmes'
+ETSI_GENRE_CARTOONS_PUPPETS = 'Cartoons/Puppets'
+
+ETSI_GENRE_MUSIC_BALLET_DANCE = 'Music/Ballet/Dance (general)'
+ETSI_GENRE_ROCK_POP = 'Rock/Pop'
+ETSI_GENRE_SERIOUS_MUSIC_CLASSICAL_MUSIC = 'Serious music/Classical music'
+ETSI_GENRE_FOLK_TRADITIONAL_MUSIC = 'Folk/Traditional music'
+ETSI_GENRE_JAZZ = 'Jazz'
+ETSI_GENRE_MUSICAL_OPERA = 'Musical/Opera'
+ETSI_GENRE_BALLET = 'Ballet'
+
+ETSI_GENRE_ARTS_CULTURE_WITHOUT_MUSIC = 'Arts/Culture (without music, general)'
+ETSI_GENRE_PERFORMING_ARTS = 'Performing arts'
+ETSI_GENRE_FINE_ARTS = 'Fine arts'
+ETSI_GENRE_RELIGION = 'Religion'
+ETSI_GENRE_POPULAR_CULTURE_TRADITIONAL_ARTS = 'Popular culture/Traditional arts'
+ETSI_GENRE_LITERATURE = 'Literature'
+ETSI_GENRE_FILM_CINEMA = 'Film/Cinema'
+ETSI_GENRE_EXPERIMENTAL_FILM_VIDEO = 'Experimental film/video'
+ETSI_GENRE_BROADCASTING_PRESS = 'Broadcasting/Press'
+ETSI_GENRE_NEW_MEDIA = 'New media'
+ETSI_GENRE_ARTS_CULTURE_MAGAZINES = 'Arts/Culture magazines'
+ETSI_GENRE_FASHION = 'Fashion'
+
+ETSI_GENRE_SOCIAL_POLITICAL_ISSUES_ECONOMICS = 'Social/Political issues/Economics (general)'
+ETSI_GENRE_MAGAZINES_REPORTS_DOCUMENTARY = 'Magazines/Reports/Documentary'
+ETSI_GENRE_ECONOMICS_SOCIAL_ADVISORY = 'Economics/Social advisory'
+ETSI_GENRE_REMARKABLE_PEOPLE = 'Remarkable people'
+
+ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS = 'Education/Science/Factual topics (general)'
+ETSI_GENRE_NATURE_ANIMALS_ENVIRONMENT = 'Nature/Animals/Environment'
+ETSI_GENRE_TECHNOLOGY_NATURAL_SCIENCES = 'Technology/Natural sciences'
+ETSI_GENRE_MEDICINE_PHYSIOLOGY_PSYCHOLOGY = 'Medicine/Physiology/Psychology'
+ETSI_GENRE_FOREIGN_COUNTRIES_EXPEDITIONS = 'Foreign countries/Expeditions'
+ETSI_GENRE_SOCIAL_SPIRITUAL_SCIENCES = 'Social/Spiritual sciences'
+ETSI_GENRE_FURTHER_EDUCATION = 'Further education'
+ETSI_GENRE_LANGUAGES = 'Languages'
+
+ETSI_GENRE_LEISURE_HOBBIES = 'Leisure hobbies (general)'
+ETSI_GENRE_TOURISM_TRAVEL = 'Tourism/Travel'
+ETSI_GENRE_HANDICRAFT = 'Handicraft'
+ETSI_GENRE_MOTORING = 'Motoring'
+ETSI_GENRE_FITNESS_AND_HEALTH = 'Fitness and health'
+ETSI_GENRE_COOKING = 'Cooking'
+ETSI_GENRE_ADVERISEMENT_SHOPPING = 'Advertisement/Shopping'
+ETSI_GENRE_GARDENING = 'Gardening'
+
+ETSI_GENRE_ORIGINAL_LANGUAGE = 'Original language'
+ETSI_GENRE_BLACK_AND_WHITE = 'Black and white'
+ETSI_GENRE_UNPUBLISHED = 'Unpublished'
+ETSI_GENRE_LIVE_BROADCAST = 'Live broadcast'
+ETSI_GENRE_PLANOSTEREOSCOPIC = 'Plano-stereoscopic'
+ETSI_GENRE_LOCAL_OR_REGIONAL = 'Local or regional'
+
 # The name of the Wikipedia "template" that contains the information we're
 # looking for. This is basically a built-in directive for displaying information
 # about something in a standardized way, in our case a television station.
@@ -1045,13 +1142,32 @@ class Program
 
     children << rating_xml()
 
-    # Include both genres and tags as categories since it makes sense to be
-    # able to filter by any combination of the two, e.g. for queries like
-    # "HDTV Sports".
-    #
-    # Note that we list genres first since many things will only accept the very
-    # first tag we present to them, and we want that to be the primary genre.
-    [*@genres, *@tags].each do |category_text|
+    # Movies are a very distinctive category, so they get the appropriate tag
+    # _first_ to define it as "most canonical".
+    if movie?
+      children << Xml.new(:category, { lang: :en }, ETSI_GENRE_MOVIE_DRAMA)
+    end
+
+    # Add a special category for live broadcasts since such a category exists.
+    if live?
+      children << Xml.new(:category, { lang: :en }, ETSI_GENRE_LIVE_BROADCAST)
+    end
+
+    # "Convert" all the original genre values into ETSI values, then combine
+    # them with the originals (mapped values taking precedence) and add them to
+    # the output as categories.
+    mapped_genres = @genres
+      .flat_map { |original_genre| map_genre(original_genre) }
+      .uniq
+    [*mapped_genres, *@genres]
+      .uniq
+      .each do |category_text|
+        children << Xml.new(:category, { lang: :en }, category_text)
+      end
+
+    # Include both tags as categories since it makes sense to be able to filter
+    # by these as well as genres, e.g. for queries like "HDTV Sports".
+    @tags.each do |category_text|
       children << Xml.new(:category, { lang: :en }, category_text)
     end
 
@@ -1127,6 +1243,158 @@ class Program
     children << Xml.new(:premiere) if premiere?
 
     Xml.new(:programme, attrs, *children)
+  end
+
+  # Takes one of the genres from the zap2it API and attempts to map it onto one
+  # of the "standard" genres from Table 28 of
+  # https://www.etsi.org/deliver/etsi_en/300400_300499/300468/01.14.01_60/en_300468v011401p.pdf.
+  #
+  # We do this since most things that interact with XMLTV data, including Kodi,
+  # only respect and/or know about these ETSI genre values and will ignore all
+  # the other ones.
+  #
+  # Note that this isn't and _can't_ be a 1-1 mapping, so we return both general
+  # and specific categories for the given genre along with the original genre
+  # itself. The values are returned in order from "most specific" to "least
+  # specific", where we treat the original value as "least specific" since it
+  # doesn't map well into anything else.
+  def map_genre(
+    original_genre # String
+  ) # Array<String>
+    genre_map = {
+      # Movie/Drama
+      # NOTE: We don't include the general "Movie/Drama" category here since
+      # it's rather specific and should only apply to _actual movies_, not
+      # random TV shows and such.
+      'Action' => [ETSI_GENRE_ADVENTURE_WESTERN_WAR],
+      'Adventure' => [ETSI_GENRE_ADVENTURE_WESTERN_WAR],
+      'Comedy' => [ETSI_GENRE_COMEDY],
+      'Comedy drama' => [ETSI_GENRE_COMEDY, ETSI_GENRE_SERIOUS_CLASSICAL_RELIGIOUS_HISTORICAL_MOVIE_DRAMA],
+      'Drama' => [ETSI_GENRE_SERIOUS_CLASSICAL_RELIGIOUS_HISTORICAL_MOVIE_DRAMA],
+      'Fantasy' => [ETSI_GENRE_SCIENCE_FICTION_FANTASY_HORROR],
+      'Historical drama' => [ETSI_GENRE_SERIOUS_CLASSICAL_RELIGIOUS_HISTORICAL_MOVIE_DRAMA],
+      'Horror' => [ETSI_GENRE_SCIENCE_FICTION_FANTASY_HORROR],
+      'Mystery' => [ETSI_GENRE_SCIENCE_FICTION_FANTASY_HORROR],
+      'Romance' => [ETSI_GENRE_ROMANCE],
+      'Romantic comedy' => [ETSI_GENRE_COMEDY, ETSI_GENRE_ROMANCE],
+      'Science fiction' => [ETSI_GENRE_SCIENCE_FICTION_FANTASY_HORROR],
+      'Soap' => [ETSI_GENRE_SOAP_MELODRAMA_FOLKLORIC],
+      'Thriller' => [ETSI_GENRE_SCIENCE_FICTION_FANTASY_HORROR],
+      'War' => [ETSI_GENRE_ADVENTURE_WESTERN_WAR],
+      'Western' => [ETSI_GENRE_ADVENTURE_WESTERN_WAR],
+
+      # News/Current affairs
+      'Documentary' => [ETSI_GENRE_NEWS_CURRENT_AFFAIRS, ETSI_GENRE_DOCUMENTARY],
+      'Interview' => [ETSI_GENRE_NEWS_CURRENT_AFFAIRS, ETSI_GENRE_DISCUSSION_INTERVIEW_DEBATE],
+      'News' => [ETSI_GENRE_NEWS_CURRENT_AFFAIRS, ETSI_GENRE_NEWS_WEATHER_REPORT],
+      'Newsmagazine' => [ETSI_GENRE_NEWS_CURRENT_AFFAIRS, ETSI_GENRE_NEWS_MAGAZINE],
+      'Politics' => [ETSI_GENRE_NEWS_CURRENT_AFFAIRS, ETSI_GENRE_DISCUSSION_INTERVIEW_DEBATE],
+      'Public affairs' => [ETSI_GENRE_NEWS_CURRENT_AFFAIRS, ETSI_GENRE_DISCUSSION_INTERVIEW_DEBATE],
+      'Weather' => [ETSI_GENRE_NEWS_CURRENT_AFFAIRS, ETSI_GENRE_NEWS_WEATHER_REPORT],
+
+      # Show/Game show
+      'Entertainment' => [ETSI_GENRE_SHOW_GAME_SHOW, ETSI_GENRE_VARIETY_SHOW],
+      'Game show' => [ETSI_GENRE_SHOW_GAME_SHOW, ETSI_GENRE_GAME_SHOW_QUIZ_CONTEST],
+      'Reality' => [ETSI_GENRE_SHOW_GAME_SHOW, ETSI_GENRE_VARIETY_SHOW],
+      'Talk' => [ETSI_GENRE_SHOW_GAME_SHOW, ETSI_GENRE_TALK_SHOW],
+      'Variety' => [ETSI_GENRE_SHOW_GAME_SHOW, ETSI_GENRE_VARIETY_SHOW],
+      'Sports talk' => [ETSI_GENRE_SHOW_GAME_SHOW, ETSI_GENRE_TALK_SHOW, ETSI_GENRE_SPORTS],
+      'Standup' => [ETSI_GENRE_SHOW_GAME_SHOW, ETSI_GENRE_COMEDY],
+      'Sitcom' => [ETSI_GENRE_SHOW_GAME_SHOW, ETSI_GENRE_COMEDY],
+
+      # Sports
+      'Action sports' => [ETSI_GENRE_SPORTS],
+      'Alpine skiing' => [ETSI_GENRE_SPORTS, ETSI_GENRE_WINTER_SPORTS],
+      'Auto racing' => [ETSI_GENRE_SPORTS, ETSI_GENRE_MOTOR_SPORT],
+      'Baseball' => [ETSI_GENRE_SPORTS, ETSI_GENRE_TEAM_SPORTS_EXCLUDING_FOOTBALL],
+      'Basketball' => [ETSI_GENRE_SPORTS, ETSI_GENRE_TEAM_SPORTS_EXCLUDING_FOOTBALL],
+      'Bowling' => [ETSI_GENRE_SPORTS],
+      'Boxing' => [ETSI_GENRE_SPORTS, ETSI_GENRE_MARTIAL_SPORTS],
+      'Bull riding' => [ETSI_GENRE_SPORTS],
+      'Figure skating' => [ETSI_GENRE_SPORTS, ETSI_GENRE_WINTER_SPORTS],
+      'Football' => [ETSI_GENRE_SPORTS, ETSI_GENRE_TEAM_SPORTS_EXCLUDING_FOOTBALL],
+      'Intl soccer' => [ETSI_GENRE_SPORTS, ETSI_GENRE_FOOTBALL_SOCCER],
+      'Mixed martial arts' => [ETSI_GENRE_SPORTS, ETSI_GENRE_MARTIAL_SPORTS],
+      'Motorcycle racing' => [ETSI_GENRE_SPORTS, ETSI_GENRE_MOTOR_SPORT],
+      'Multi-sport event' => [ETSI_GENRE_SPORTS, ETSI_GENRE_SPECIAL_EVENTS],
+      'Pro wrestling' => [ETSI_GENRE_SPORTS, ETSI_GENRE_MARTIAL_SPORTS],
+      'Sailing' => [ETSI_GENRE_SPORTS, ETSI_GENRE_WATER_SPORT],
+      'Soccer' => [ETSI_GENRE_SPORTS, ETSI_GENRE_FOOTBALL_SOCCER],
+      'Surfing' => [ETSI_GENRE_SPORTS, ETSI_GENRE_WATER_SPORT],
+      'Triathlon' => [ETSI_GENRE_SPORTS, ETSI_GENRE_ATHLETICS],
+      'Watersports' => [ETSI_GENRE_SPORTS, ETSI_GENRE_WATER_SPORT],
+      'Wrestling' => [ETSI_GENRE_SPORTS, ETSI_GENRE_MARTIAL_SPORTS],
+      'Yacht racing' => [ETSI_GENRE_SPORTS, ETSI_GENRE_WATER_SPORT],
+      'eSports' => [ETSI_GENRE_SPORTS],
+
+      # Children's/Youth programmes
+      'Children' => [ETSI_GENRE_CHILDRENS_YOUTH_PROGRAMS],
+
+      # Music/Ballet/Dance
+      'Dance' => [ETSI_GENRE_MUSIC_BALLET_DANCE],
+      'Music' => [ETSI_GENRE_MUSIC_BALLET_DANCE],
+      'Musical' => [ETSI_GENRE_MUSIC_BALLET_DANCE],
+
+      # Arts/Culture (without music)
+      'Anthology' => [ETSI_GENRE_ARTS_CULTURE_WITHOUT_MUSIC],
+      'Art' => [ETSI_GENRE_ARTS_CULTURE_WITHOUT_MUSIC, ETSI_GENRE_FINE_ARTS],
+      'Awards' => [ETSI_GENRE_ARTS_CULTURE_WITHOUT_MUSIC, ETSI_GENRE_POPULAR_CULTURE_TRADITIONAL_ARTS],
+      'Dog show' => [ETSI_GENRE_ARTS_CULTURE_WITHOUT_MUSIC],
+      'Fashion' => [ETSI_GENRE_ARTS_CULTURE_WITHOUT_MUSIC, ETSI_GENRE_FASHION],
+      'Parade' => [ETSI_GENRE_ARTS_CULTURE_WITHOUT_MUSIC],
+      'Performing arts' => [ETSI_GENRE_ARTS_CULTURE_WITHOUT_MUSIC, ETSI_GENRE_PERFORMING_ARTS],
+      'Religious' => [ETSI_GENRE_ARTS_CULTURE_WITHOUT_MUSIC, ETSI_GENRE_RELIGION],
+
+      # Social/Political issues/Economics
+      'Biography' => [ETSI_GENRE_SOCIAL_POLITICAL_ISSUES_ECONOMICS, ETSI_GENRE_REMARKABLE_PEOPLE],
+      'Bus./financial' => [ETSI_GENRE_SOCIAL_POLITICAL_ISSUES_ECONOMICS, ETSI_GENRE_ECONOMICS_SOCIAL_ADVISORY],
+      'Community' => [ETSI_GENRE_SOCIAL_POLITICAL_ISSUES_ECONOMICS],
+      'Crime' => [ETSI_GENRE_SOCIAL_POLITICAL_ISSUES_ECONOMICS],
+      'Crime drama' => [ETSI_GENRE_SOCIAL_POLITICAL_ISSUES_ECONOMICS],
+      'Gay/lesbian' => [ETSI_GENRE_SOCIAL_POLITICAL_ISSUES_ECONOMICS],
+
+      # Education/Science/Factual topics
+      'Agriculture' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS, ETSI_GENRE_TECHNOLOGY_NATURAL_SCIENCES],
+      'American history' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS],
+      'Ancient history' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS],
+      'Animals' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS, ETSI_GENRE_NATURE_ANIMALS_ENVIRONMENT],
+      'Aviation' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS],
+      'EI' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS],
+      'Educational' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS],
+      'Environment' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS, ETSI_GENRE_NATURE_ANIMALS_ENVIRONMENT],
+      'History' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS],
+      'How-to' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS, ETSI_GENRE_FURTHER_EDUCATION],
+      'Law' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS],
+      'Medical' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS, ETSI_GENRE_MEDICINE_PHYSIOLOGY_PSYCHOLOGY],
+      'Military' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS],
+      'Nature' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS, ETSI_GENRE_NATURE_ANIMALS_ENVIRONMENT],
+      'Paranormal' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS, ETSI_GENRE_MEDICINE_PHYSIOLOGY_PSYCHOLOGY],
+      'Science' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS],
+      'Self improvement' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS],
+      'Technology' => [ETSI_GENRE_EDUCATION_SCIENCE_FACTUAL_TOPICS, ETSI_GENRE_TECHNOLOGY_NATURAL_SCIENCES],
+
+      # Leisure hobbies
+      'Arts/crafts' => [ETSI_GENRE_LEISURE_HOBBIES, ETSI_GENRE_HANDICRAFT],
+      'Auction' => [ETSI_GENRE_LEISURE_HOBBIES, ETSI_GENRE_ADVERISEMENT_SHOPPING],
+      'Auto' => [ETSI_GENRE_LEISURE_HOBBIES, ETSI_GENRE_MOTORING],
+      'Card games' => [ETSI_GENRE_LEISURE_HOBBIES],
+      'Collectibles' => [ETSI_GENRE_LEISURE_HOBBIES],
+      'Consumer' => [ETSI_GENRE_LEISURE_HOBBIES, ETSI_GENRE_ADVERISEMENT_SHOPPING],
+      'Cooking' => [ETSI_GENRE_LEISURE_HOBBIES, ETSI_GENRE_COOKING],
+      'Exercise' => [ETSI_GENRE_LEISURE_HOBBIES, ETSI_GENRE_FITNESS_AND_HEALTH],
+      'Fishing' => [ETSI_GENRE_LEISURE_HOBBIES],
+      'Gaming' => [ETSI_GENRE_LEISURE_HOBBIES],
+      'Health' => [ETSI_GENRE_LEISURE_HOBBIES, ETSI_GENRE_FITNESS_AND_HEALTH],
+      'Holiday' => [ETSI_GENRE_LEISURE_HOBBIES],
+      'Home improvement' => [ETSI_GENRE_LEISURE_HOBBIES, ETSI_GENRE_HANDICRAFT],
+      'House/garden' => [ETSI_GENRE_LEISURE_HOBBIES, ETSI_GENRE_GARDENING],
+      'Outdoors' => [ETSI_GENRE_LEISURE_HOBBIES],
+      'Poker' => [ETSI_GENRE_LEISURE_HOBBIES],
+      'Shopping' => [ETSI_GENRE_LEISURE_HOBBIES, ETSI_GENRE_ADVERISEMENT_SHOPPING],
+      'Travel' => [ETSI_GENRE_LEISURE_HOBBIES, ETSI_GENRE_TOURISM_TRAVEL],
+    }
+
+    genre_map.fetch(original_genre, original_genre)
   end
 
   # If a rating is present, returns an XMLTV tag representing it. Otherwise,
