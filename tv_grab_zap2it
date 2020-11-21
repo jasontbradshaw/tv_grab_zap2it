@@ -3757,9 +3757,6 @@ def fetch_lineup(
         # These don't show up at all in the "basic" info, so we _must_ use those
         # that come back from the enhanced info.
         genres = enhanced_program_info.fetch(:genres)
-          .compact
-          .map(&:strip)
-          .reject(&:empty?)
         credits = enhanced_program_info.fetch(:credits)
       end
 
