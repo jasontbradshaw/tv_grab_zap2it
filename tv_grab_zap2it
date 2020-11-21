@@ -1202,20 +1202,21 @@ class Program
       tags_text_parts << "New" if new?
       tags_text = tags_text_parts.join(', ')
 
+      season_text_parts = []
+      season_text_parts << "Season #{@season}" if @season
+      season_text_parts << "Episode #{@episode}" if @episode && @episode > 0
+      season_text = season_text_parts
+        .compact
+        .join(', ')
+
       original_release_date_text =
         if @original_release_date
           date_string = @original_release_date.strftime(original_release_date_format)
 
           if movie?
-            "Released in #{date_string}"
+            "Released #{date_string}"
           else
-            # When the episode is "new", there's no point in adding the "first
-            # aired" text since, well, it first aired in the current time slot!
-            if new?
-              nil
-            else
-              "First aired #{date_string}"
-            end
+            "First aired #{date_string}"
           end
         else
           nil
@@ -1224,6 +1225,7 @@ class Program
       bonus_text =
         [
           tags_text,
+          season_text,
           original_release_date_text,
         ]
         .compact
