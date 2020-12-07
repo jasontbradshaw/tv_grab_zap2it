@@ -3481,6 +3481,8 @@ def fetch_program_details(
           :presenter
         elsif /commentator/i.match?(role)
           :commentator
+        elsif /voice/i.match?(role)
+          :actor
         else
           # If we can't map the kind of credit this person should receive, call
           # them a "guest" since it's better than nothing at all.
