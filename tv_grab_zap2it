@@ -3485,9 +3485,10 @@ def fetch_program_details(
           :actor
         else
           # If we can't map the kind of credit this person should receive, call
-          # them a "guest" since it's better than nothing at all.
-          LOG.warn("Couldn't parse credit type for role #{role.inspect}, falling back to 'guest'")
-          :guest
+          # them an "actor" since it's better than nothing at all.
+          fallback = :actor
+          LOG.warn("Couldn't parse credit type for role #{role.inspect}, falling back to #{fallback.inspect}")
+          fallback
         end
 
       {
