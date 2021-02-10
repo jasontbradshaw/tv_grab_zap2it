@@ -1,6 +1,6 @@
 # The typical cache file name we use during manual testing.
 cache.json*
 
-# The giant "example" XML file from the plugin that inspired this one.
+# The typical output file name we use during manual testing.
 xmltv.xml
 xmltv.*.xml
