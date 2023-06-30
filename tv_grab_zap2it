@@ -3975,9 +3975,9 @@ def main!
   cache = config.cache
   LOG.debug do
     if cache.path.nil?
-      "Using in-memory cache only"
+      'Using in-memory cache'
     else
-      "Loaded cache from #{cache.path}"
+      "Using cache at #{cache.path}"
     end
   end
 
