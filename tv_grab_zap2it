@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 require 'date'
 require 'digest'
+require 'fileutils'
 require 'json'
 require 'logger'
 require 'net/http'
@@ -1489,30 +1490,12 @@ class Cache
     @path = path
     @is_dirty = false
 
-    @cache = {}
-
     # Initialize the cache from the backing store, if given.
+    @cache = {}
     if !path.nil? && path.exist?
-      begin
-        @cache = path.open('rb') do |f|
-          compressed_json_text = f.read
-
-          # The data is stored GZipped, so we must decompress it before parsing
-          # the JSON data contained within.
-          json_text = Zlib.gunzip(compressed_json_text)
-
-          # We use `JSON#parse` instead of `JSON#load` so we don't have to trust
-          # the input file we were given, which the documentation suggests we must
-          # do if using `JSON#load`.
-          JSON.parse(json_text, symbolize_names: true)
-        end
-      rescue StandardError => err
-        raise IOError, "Unable to load cache at #{path}: #{err}"
-      end
-
-      unless @cache.is_a?(Hash)
-        raise IOError, "#{path} contains invalid cache file contents"
-      end
+      LOG.debug("Attempting to initialize cache data from #{path}")
+      @cache = load_cache(path)
+      LOG.info("Successfully initialized cache from #{path}")
     end
   end
 
@@ -1550,9 +1533,28 @@ class Cache
     # time and space storing and serializing expired entries.
     prune!
 
-    LOG.debug("Persisting cache to path #{@path}")
-    @path.open('wb') do |f|
-      # Since we control this, we know it's non-circular.
+    # Sometimes, we end up getting errors when reading the cache that suggest
+    # the cache was corrupted during write for some reason. E.g.
+    # ```
+    # Unable to load cache at /var/lib/tvheadend/.hts/tvheadend/epggrab/cache.json.gz: unexpected end of string
+    # ```
+    #
+    # Since it's not entirely clear why this happens, we do the following in an
+    # attempt to prevent corrupting the cache on write:
+    # 1. Persist to a temporary file first
+    # 2. Ensure we can successfully re-load/parse that file
+    # 3. If we can load it, replace the original cache file with the new one
+    #    using `mv`
+    # 4. If we can't load the file, log an error and leave the old cache in
+    #    place
+    # This hopefully makes cache updates atomic and prevents us from storing any
+    # self-corrupted cache data.
+
+    temp_path = path.sub_ext('.tmp')
+
+    LOG.debug("Persisting cache to temporary path #{temp_path}")
+    temp_path.open('wb') do |f|
+      # Since we control the cache structure, we know it's non-circular.
       json_text = JSON.fast_generate(@cache)
 
       LOG.debug("Stringified cache JSON is #{json_text.bytesize} bytes")
@@ -1569,10 +1571,25 @@ class Cache
       f.write(compressed_json_text)
     end
 
-    # Once the cache has been persisted, it's no longer considered "dirty" since
-    # it hasn't changed since the last write to disk.
-    LOG.debug('Marking persisted cache as non-dirty')
-    @is_dirty = false
+    # Attempt to load the just-written temporary cache; if we can do so
+    # successfully, we replace the original cache file with it.
+    begin
+      LOG.debug('Validating persisted temporary cache')
+      # Attempt to re-load (thereby lightly validating) the cache.
+      load_cache(temp_path)
+
+      # Move the temporary cache file to its final destination, overwriting the
+      # original cache file.
+      LOG.debug("Temporary cache at #{temp_path} is valid, moving it to #{@path}")
+      FileUtils.mv(temp_path, @path, force: true)
+
+      # Once the cache has been persisted, it's no longer considered "dirty"
+      # since it hasn't changed since the last write to disk.
+      LOG.debug('Marking persisted cache as non-dirty')
+      @is_dirty = false
+    rescue StandardError => err
+      LOG.error("Failed to successfully re-load persisted temporary cache at #{temp_path} (#{err}); allowing original cache data at #{@path} to remain to avoid writing a corrupted cache")
+    end
 
     self
   end
@@ -1686,6 +1703,45 @@ class Cache
     now: Time.now.getutc # Time
   )
     now > entry_expiration_time(entry, now: now)
+  end
+
+  def load_cache(
+    path # Path
+  ) # Cache Hash
+    LOG.debug("Attempting to load cache data from #{path}")
+
+    raise ArgumentError, 'Cache path may not be `nil`' if path.nil?
+    raise IOError, "File at cache path #{path} does not exist" unless path.exist?
+
+    cache =
+      begin
+        LOG.debug('Opening cache file...')
+        cache = path.open('rb') do |f|
+          LOG.debug('Reading cache data...')
+          compressed_json_text = f.read
+
+          # The data is stored GZipped, so we must decompress it before parsing
+          # the JSON data contained within.
+          LOG.debug("Decompressing #{compressed_json_text.bytesize} of compressed cache data...")
+          json_text = Zlib.gunzip(compressed_json_text)
+
+          # We use `JSON#parse` instead of `JSON#load` so we don't have to trust
+          # the input file we were given, which the documentation suggests we
+          # must do if using `JSON#load`.
+          LOG.debug("Parsing #{json_text.bytesize} of decompressed cache data...")
+          JSON.parse(json_text, symbolize_names: true)
+        end
+      rescue StandardError => err
+        raise IOError, "Unable to load cache at #{path}: #{err}"
+      end
+
+    # Do a simple sanity check on the cache format to be sure it's at least the
+    # correct top-level type.
+    unless cache.is_a?(Hash)
+      raise IOError, "#{path} contains invalid cache file contents"
+    end
+
+    cache
   end
 end
 
