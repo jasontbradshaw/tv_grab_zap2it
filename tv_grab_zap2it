@@ -11,6 +11,7 @@ require 'optparse'
 require 'ostruct'
 require 'pathname'
 require 'set'
+require 'socket'
 require 'uri'
 require 'zlib'
 
@@ -2177,6 +2178,7 @@ def fetch(
             Net::OpenTimeout,
             Net::ReadTimeout,
             Net::WriteTimeout,
+            SocketError,
             OpenSSL::SSL::SSLError \
             => err
           # If we've failed too many times or aren't supposed to retry, give up.
