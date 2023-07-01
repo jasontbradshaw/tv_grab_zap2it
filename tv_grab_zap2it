@@ -6,6 +6,7 @@ require 'fileutils'
 require 'json'
 require 'logger'
 require 'net/http'
+require 'openssl'
 require 'optparse'
 require 'ostruct'
 require 'pathname'
@@ -2175,7 +2176,8 @@ def fetch(
             Net::HTTPTooManyRequests,
             Net::OpenTimeout,
             Net::ReadTimeout,
-            Net::WriteTimeout \
+            Net::WriteTimeout,
+            OpenSSL::SSL::SSLError \
             => err
           # If we've failed too many times or aren't supposed to retry, give up.
           if attempts > 5 || (method == :POST && !should_retry_posts)
