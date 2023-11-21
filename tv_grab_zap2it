@@ -2364,7 +2364,7 @@ def fetch_station_affiliate_info(
 ) # Hash<String channel number, String affiliate name> | nil
   LOG.info("Fetching station affiliations for channel call sign #{call_sign} and country #{country}")
 
-  # TODO: Attempt to use `rabbitears.info` to retrieve station channel number to
+  # Attempt to use `rabbitears.info` to retrieve station channel number to
   # human-readable name mappings.
   market_html = fetch(
     RABBITEARS_HOST,
@@ -2539,7 +2539,7 @@ def fetch_station_affiliate_info(
     return nil
   end
 
-  # Find each row in the table; each of these is a child station.
+  # Find each non-header row in the table; each of these is a child station.
   channel_infos = scan_unnested_html_tag(table_match.to_s, 'tr')
     .drop(1)
     .flat_map do |row|
