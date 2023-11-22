@@ -3224,6 +3224,16 @@ def fetch_lineup(
       ttl_seconds: ttl_seconds,
     )
 
+    # Sometimes, the lineup data for a given date simply doesn't exist at all in
+    # the response. To prevent having to treat these "missing dates" as special
+    # cases later when looking up the data for the date, we stub out all
+    # response dates as having empty lineups, _then_ overwrite them with the
+    # _real_ response data to add anything we actually received.
+    dates_to_fetch.each do |date_to_fetch|
+      cache_key = get_lineup_date_cache_key(channel, date_to_fetch)
+      cache.set(cache_key, [], ttl_seconds, now: now)
+    end
+
     # The lineup data comes in mapped date string (e.g. `2020-01-02`) to array
     # of programs; we convert this into a cache entry per date.
     lineup_data_for_fortnight.each_pair do |date_sym, lineup_programs|
