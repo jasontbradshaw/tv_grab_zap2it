@@ -804,7 +804,7 @@ class Channel
     Xml.new(:channel, { id: xml_id() }, *[
       Xml.new(:icon, { src: @image_url }),
       @name && Xml.new(:display_name, {}, @name),
-      Xml.new(:display_name, {}, "#{@number} #{@call_sign}"),
+      Xml.new(:display_name, {}, "#{@call_sign} (#{@number})"),
       Xml.new(:display_name, {}, @call_sign),
       Xml.new(:display_name, {}, @number),
     ])
