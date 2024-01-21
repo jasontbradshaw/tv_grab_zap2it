@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
+
 require 'cgi'
 require 'date'
 require 'digest'
@@ -31,9 +32,9 @@ def digest(
 
   hash =
     case format
-      when :hex then d.hexdigest()
-      when :base64 then d.base64digest()
-      when :bubblebabble then d.bubblebabble()
+      when :hex then d.hexdigest
+      when :base64 then d.base64digest
+      when :bubblebabble then d.bubblebabble
       else
         raise ArgumentError, "Invalid format: #{format.inspect}"
     end
@@ -220,7 +221,7 @@ class Color
 end.freeze
 
 # Used to extract information about a method from an entry in the call stack.
-CALLER_INFO_REGEXP = /:(?<line_number>\d+):in\s+\`(?<method_name>[^']+)'$/
+CALLER_INFO_REGEXP = /:(?<line_number>\d+):in\s+`(?<method_name>[^']+)'$/
 
 # Create the global logger for simple use from all places in the program. If
 # this is configured further, we do so in `#main!`.
@@ -229,14 +230,13 @@ LOG = Logger.new(
   # to STDOUT. If someone wants to log to a different file, they can redirect
   # our error output to it themselves!
   $stderr,
-
   # The level we pick here isn't of consequence since we'll override it
   # immediately on running `#main!` with whatever the user configured, or with
   # the default option we selected when generating the config.
   level: :error,
 
   # Enable nice custom formatting for useful output.
-  formatter: Proc.new do |severity, datetime, program_name, message|
+  formatter: proc do |severity, datetime, _program_name, message|
     output_parts = []
 
     # Only include "fancy" output information at the more verbose log levels
@@ -312,7 +312,7 @@ class Arg
   # classes using `#is_a?`.
   def is_a(first_class, *other_classes)
     classes = [first_class, *other_classes].freeze
-    self.parser do |value|
+    parser do |value|
       value_is_a = classes.any? do |potential_class|
         value.is_a?(potential_class)
       end
@@ -328,7 +328,8 @@ class Arg
             'one of '
           end
 
-        raise ArgumentError, "{{ name }} must be an instance of #{one_of_text}#{class_names}, but was an instance of #{value.class.name}"
+        raise ArgumentError, 
+"{{ name }} must be an instance of #{one_of_text}#{class_names}, but was an instance of #{value.class.name}"
       end
 
       value
@@ -338,7 +339,7 @@ class Arg
   # Ensures the passed value is one of the given values.
   def one_of(potential_value, *other_values)
     potential_values = [potential_value, *other_values].freeze
-    self.parser do |value|
+    parser do |value|
       unless potential_values.include?(value)
         values_text = potential_values.map(&:to_s).join(', ')
 
@@ -358,9 +359,9 @@ class Arg
   end
 
   def non_empty
-    self.parser do |value|
+    parser do |value|
       if value.empty?
-        raise ArgumentError, "{{ name }} must not be empty"
+        raise ArgumentError, '{{ name }} must not be empty'
       end
 
       value
@@ -369,9 +370,9 @@ class Arg
 
   # Validates that a value is non-`nil` and returns that value.
   def non_nil
-    self.parser do |value|
+    parser do |value|
       if value.nil?
-        raise ArgumentError, "{{ name }} is required to be non-`nil`"
+        raise ArgumentError, '{{ name }} is required to be non-`nil`'
       end
 
       value
@@ -379,7 +380,7 @@ class Arg
   end
 
   def strip
-    self.is_a(String).parser do |value|
+    is_a(String).parser do |value|
       value.strip
     end
   end
@@ -388,41 +389,41 @@ class Arg
     regexp, # Regexp
     substitution # String
   )
-    self.is_a(String).parser do |value|
+    is_a(String).parser do |value|
       value.gsub(regexp, substitution)
     end
   end
 
   def downcase
-    self.is_a(String).parser do |value|
+    is_a(String).parser do |value|
       value.downcase
     end
   end
 
   def upcase
-    self.is_a(String).parser do |value|
+    is_a(String).parser do |value|
       value.upcase
     end
   end
 
   def symbolize
-    self.parser do |value|
+    parser do |value|
       value.to_sym
     end
   end
 
   def int
-    self.is_a(String).parser do |value|
-      begin
+    is_a(String).parser do |value|
+      
         Integer(value, 10)
-      rescue ArgumentError => err
-        raise ArgumentError, "{{ name }} of #{value.inspect} is not a valid integer: #{err}"
-      end
+      rescue ArgumentError => e
+        raise ArgumentError, "{{ name }} of #{value.inspect} is not a valid integer: #{e}"
+      
     end
   end
 
   def time
-    self.is_a(Integer).parser do |value|
+    is_a(Integer).parser do |value|
       Time.at(value).getutc
     end
   end
@@ -430,7 +431,7 @@ class Arg
   def min(
     n # Integer
   )
-    self.parser do |value|
+    parser do |value|
       if value < n
         raise ArgumentError, "{{ name }} of #{value.inspect} must not be less than #{n}"
       end
@@ -442,7 +443,7 @@ class Arg
   def max(
     n # Integer
   )
-    self.parser do |value|
+    parser do |value|
       if value > n
         raise ArgumentError, "{{ name }} of #{value.inspect} must not be greater than #{n}"
       end
@@ -452,7 +453,7 @@ class Arg
   end
 
   def path_name
-    self.parser do |value|
+    parser do |value|
       Pathname
         .new(value)
         .cleanpath
@@ -461,7 +462,7 @@ class Arg
   end
 
   def exists
-    self.parser.path_name do |value|
+    parser.path_name do |value|
       unless value.exist?
         raise ArgumentError, "{{ name }} of #{value} does not exist"
       end
@@ -472,17 +473,17 @@ class Arg
   def stream(
     mode = 'r' # https://ruby-doc.org/core-2.7.2/IO.html#method-c-new-label-IO+Open+Mode
   )
-    self.path_name.parser do |path|
+    path_name.parser do |path|
       fd = path.sysopen(mode)
       IO.open(fd, mode)
     end
   end
 
   def uri
-    self.parser do |value|
+    parser do |value|
       URI.parse(value)
-    rescue URI::InvalidURIError => err
-      raise ArgumentError, "{{ name }} of #{value.inspect} is not a valid URI: #{err}"
+    rescue URI::InvalidURIError => e
+      raise ArgumentError, "{{ name }} of #{value.inspect} is not a valid URI: #{e}"
     end
   end
 
@@ -495,25 +496,25 @@ class Arg
   def parse(
     value # any
   )
-    begin
+    
       @value = @parsers.inject(value) do |current_value, parser|
         parser.call(current_value)
       end
-    rescue StandardError => err
+    rescue StandardError => e
       new_err_class = ArgumentError
 
       # Replace any occurence of `{{ name }}` with our configured name to make
       # the errors prettier.
-      message = err.message.gsub(/\{\{\s*name\s*\}\}/i, @name)
+      message = e.message.gsub(/\{\{\s*name\s*\}\}/i, @name)
 
       # Preserve the original error class name if it's not the one we're
       # "casting" to.
-      if err.class.name != new_err_class.name
-        message = "#{err.class.name}: #{message}"
+      if e.class.name != new_err_class.name
+        message = "#{e.class.name}: #{message}"
       end
 
       raise new_err_class, message
-    end
+    
   end
 end
 
@@ -570,11 +571,11 @@ class Xml
     is_self_closing = @children.count.zero?
     if is_self_closing
       tag = "<#{@name}#{attrs_string} />"
-      if prev_thing == :tag
-        return "\n" + indent + tag
-      else
+      return "\n" + indent + tag if prev_thing == :tag
+        
+      
         return tag
-      end
+      
     end
 
     # Now, we assemble the output string appropriately.
@@ -801,13 +802,13 @@ class Channel
   end
 
   def to_xml
-    Xml.new(:channel, { id: xml_id() }, *[
-      Xml.new(:icon, { src: @image_url }),
+    Xml.new(:channel, { id: xml_id }, *[
+              Xml.new(:icon, { src: @image_url }),
       @name && Xml.new(:display_name, {}, @name),
       Xml.new(:display_name, {}, "#{@call_sign} (#{@number})"),
       Xml.new(:display_name, {}, @call_sign),
       Xml.new(:display_name, {}, @number),
-    ])
+            ],)
   end
 
   def to_s
@@ -893,6 +894,7 @@ class Program
         unless t > @start_time
           raise ArgumentError, '{{ name }} must be later than start_time'
         end
+
         t
       end
       .parse(end_time)
@@ -1025,12 +1027,24 @@ class Program
       .parse(credits)
   end
 
-  def movie?; @is_movie; end
-  def new?; @is_new; end
-  def live?; @is_live; end
-  def premiere?; @is_premiere; end
-  def finale?; @is_finale; end
-  def generic?; @is_generic; end
+  def movie?; 
+    @is_movie; 
+  end
+  def new?; 
+    @is_new; 
+  end
+  def live?; 
+    @is_live; 
+  end
+  def premiere?; 
+    @is_premiere; 
+  end
+  def finale?; 
+    @is_finale; 
+  end
+  def generic?; 
+    @is_generic; 
+  end
 
   def to_xml
     attrs = {
@@ -1061,7 +1075,7 @@ class Program
         [
           "S#{@season.to_s.rjust(2, '0')}",
           "E#{@episode.to_s.rjust(2, '0')}",
-      ].join
+        ].join
       children << Xml.new(:episode_num, { system: :onscreen }, onscreen_episode)
     end
 
@@ -1082,7 +1096,7 @@ class Program
       children << Xml.new(:date, {}, @original_release_date.strftime(original_release_date_format))
     end
 
-    children << rating_xml()
+    children << rating_xml
 
     # Movies are a very distinctive category, so they get the appropriate tag
     # _first_ to define it as "most canonical".
@@ -1127,7 +1141,7 @@ class Program
         end
 
         Xml.new(type, credits_attrs, name)
-      end)
+      end,)
 
       children << credits_xml
     end
@@ -1138,10 +1152,10 @@ class Program
       # Add "bonus" info into the description, e.g. original air date,
       # season/episode info, "New", etc.
       tags_text_parts = []
-      tags_text_parts << "Finale" if finale?
-      tags_text_parts << "Premiere" if premiere?
-      tags_text_parts << "Live" if live?
-      tags_text_parts << "New" if new?
+      tags_text_parts << 'Finale' if finale?
+      tags_text_parts << 'Premiere' if premiere?
+      tags_text_parts << 'Live' if live?
+      tags_text_parts << 'New' if new?
       tags_text = tags_text_parts.join(', ')
 
       season_text_parts = []
@@ -1160,8 +1174,6 @@ class Program
           else
             "First aired #{date_string}"
           end
-        else
-          nil
         end
 
       bonus_text =
@@ -1170,15 +1182,15 @@ class Program
           season_text,
           original_release_date_text,
         ]
-        .compact
-        .map(&:strip)
-        .reject(&:empty?)
-        .join(" · ")
+          .compact
+          .map(&:strip)
+          .reject(&:empty?)
+          .join(' · ')
 
       children << Xml.new(
         :desc,
         { lang: :en },
-        "#{bonus_text}\n#{@description}".strip
+        "#{bonus_text}\n#{@description}".strip,
       )
     end
 
@@ -1349,7 +1361,7 @@ class Program
     attributes = {}
     children = [
       # The rating is always included as the value of the overall tag.
-      Xml.new(:value, {}, @rating)
+      Xml.new(:value, {}, @rating),
     ]
 
     # If the rating is one of the "standard" US FCC values, include an `icon`
@@ -1394,9 +1406,9 @@ class Config < OpenStruct
     if value.nil?
       article_text =
         if /^[aeiou]/.match?(name)
-          "An"
+          'An'
         else
-          "A"
+          'A'
         end
       raise ArgumentError, "#{article_text} #{name} is required but was not specified; see --help for details."
     end
@@ -1408,7 +1420,7 @@ class Config < OpenStruct
   def to_s
     "Config(\n" + each_pair.map do |(key, value)|
       # Omit certian gigantic and not-terribly-useful keys.
-      if [:option_parser, :cache].include?(key)
+      if %i[option_parser cache].include?(key)
         next nil
       end
 
@@ -1433,11 +1445,11 @@ class Cache
 
     # Initialize the cache from the backing store, if given.
     @cache = {}
-    if !path.nil? && path.exist?
+    return unless !path.nil? && path.exist?
       LOG.debug("Attempting to initialize cache data from #{path}")
       @cache = load_cache(path)
       LOG.info("Successfully initialized cache from #{path}")
-    end
+    
   end
 
   # Returns the number of entries in the cache.
@@ -1502,7 +1514,7 @@ class Cache
 
       # GZip the data heavily since it can get quite large (100Mb or more!) and
       # compresses very well since it's mostly JSON and contains a lot of
-      # human-generated text (Wikipedia articles, plot summaries, etc.).
+      # human-generated text (HTML pages, plot summaries, etc.).
       compressed_json_text = Zlib.gzip(json_text, level: Zlib::BEST_COMPRESSION)
 
       LOG.debug do
@@ -1528,8 +1540,8 @@ class Cache
       # since it hasn't changed since the last write to disk.
       LOG.debug('Marking persisted cache as non-dirty')
       @is_dirty = false
-    rescue StandardError => err
-      LOG.error("Failed to successfully re-load persisted temporary cache at #{temp_path} (#{err}); allowing original cache data at #{@path} to remain to avoid writing a corrupted cache")
+    rescue StandardError => e
+      LOG.error("Failed to successfully re-load persisted temporary cache at #{temp_path} (#{e}); allowing original cache data at #{@path} to remain to avoid writing a corrupted cache")
     end
 
     self
@@ -1540,15 +1552,15 @@ class Cache
     now = Time.now.getutc
 
     @cache.each_pair do |key, entry|
-      if entry_expired?(entry, now: now)
-        LOG.debug do
-          "Pruning entry for key #{key} from cache (expired as of #{entry_expiration_time(entry, now: now)}) and marking cache as dirty"
-        end
-
-        # Only mark the cache as dirty if something is actually pruned from it.
-        @is_dirty = true
-        @cache.delete(key)
+      next unless entry_expired?(entry, now: now)
+      LOG.debug do
+        "Pruning entry for key #{key} from cache (expired as of #{entry_expiration_time(entry, 
+now: now)}) and marking cache as dirty"
       end
+
+      # Only mark the cache as dirty if something is actually pruned from it.
+      @is_dirty = true
+      @cache.delete(key)
     end
 
     self
@@ -1600,7 +1612,7 @@ class Cache
     @cache[cache_key] = {
       created_at: now.to_i,
       ttl_seconds: ttl_seconds,
-      value: value
+      value: value,
     }
 
     value
@@ -1611,8 +1623,7 @@ class Cache
   # before being returned.
   def fetch(
     cache_key, # String | Symbol
-    ttl_seconds, # Integer
-    &block # () => JSON
+    ttl_seconds, # Integer # () => JSON
   ) # the cached value
     Arg
       .name('ttl_seconds')
@@ -1672,8 +1683,8 @@ class Cache
           LOG.debug("Parsing #{json_text.bytesize} of decompressed cache data...")
           JSON.parse(json_text, symbolize_names: true)
         end
-      rescue StandardError => err
-        raise IOError, "Unable to load cache at #{path}: #{err}"
+      rescue StandardError => e
+        raise IOError, "Unable to load cache at #{path}: #{e}"
       end
 
     # Do a simple sanity check on the cache format to be sure it's at least the
@@ -1702,7 +1713,7 @@ def parse_config_from_args(
     # The `OptionParser` instance that parsed this config. This is useful so
     # whoever gets the config can inspect e.g. all the parsed arguments that
     # created it.
-    option_parser: nil, # OptionParser | nil
+                        option_parser: nil, # OptionParser | nil
 
     # These `return_*?` options indicate that the program should run in the
     # requisite "mode" and do something, then exit.
@@ -1736,7 +1747,7 @@ def parse_config_from_args(
     country: nil, # :USA | :CAN
     postal_code: nil, # String
     provider_id: nil, # String
-  })
+                      })
 
   option_parser = OptionParser.new do |opts|
     opts.program_name = PROGRAM_NAME
@@ -1753,7 +1764,7 @@ def parse_config_from_args(
     opts.on(
       '-h',
       '--help',
-      'Output program help text and exit.'
+      'Output program help text and exit.',
     ) do
       config[:return_help_text?] = true
     end
@@ -1761,7 +1772,7 @@ def parse_config_from_args(
     opts.on(
       '-v',
       '--version',
-      'Output program version information and exit.'
+      'Output program version information and exit.',
     ) do
       config[:return_version_info?] = true
     end
@@ -1776,14 +1787,14 @@ def parse_config_from_args(
 
     opts.on(
       '--description',
-      'Output our XMLTV description and exit.'
+      'Output our XMLTV description and exit.',
     ) do
       config[:return_description?] = true
     end
 
     opts.on(
       '--capabilities',
-      'Output our supported XMLTV capabilities and exit.'
+      'Output our supported XMLTV capabilities and exit.',
     ) do
       config[:return_capabilities?] = true
     end
@@ -1795,7 +1806,7 @@ def parse_config_from_args(
     opts.on(
       '-q',
       '--quiet',
-      'Log only at the error level and higher.'
+      'Log only at the error level and higher.',
     ) do
       config.log_level = :error
     end
@@ -1804,7 +1815,7 @@ def parse_config_from_args(
     opts.on(
       '-o PATH',
       "#{output_flag} PATH",
-      'Write output to this file instead of standard output.'
+      'Write output to this file instead of standard output.',
     ) do |p|
       config.output_file = Arg
         .name(output_flag)
@@ -1817,7 +1828,7 @@ def parse_config_from_args(
     opts.on(
       '-d DAYS',
       "#{days_flag} DAYS",
-      'The number of days of data to obtain, default "as many as are available"'
+      'The number of days of data to obtain, default "as many as are available"',
     ) do |d|
       config.days_to_fetch = Arg
         .name(days_flag)
@@ -1831,7 +1842,7 @@ def parse_config_from_args(
     opts.on(
       '-f DAYS',
       "#{offset_flag} DAYS",
-      'Obtain data starting on the date this many days from today. Default is 0, i.e. "today", 1 is "tomorrow", etc.'
+      'Obtain data starting on the date this many days from today. Default is 0, i.e. "today", 1 is "tomorrow", etc.',
     ) do |o|
       config.day_offset = Arg
         .name(offset_flag)
@@ -1842,7 +1853,7 @@ def parse_config_from_args(
     config_file_flag = '--config-file'
     opts.on(
       "#{config_file_flag} PATH",
-      'The path to the (optional) configuration file for this grabber.'
+      'The path to the (optional) configuration file for this grabber.',
     ) do |p|
       config_path = Arg
         .name(config_file_flag)
@@ -1865,7 +1876,7 @@ def parse_config_from_args(
     cache_flag = '--cache'
     opts.on(
       "#{cache_flag} PATH",
-      'If given, a file in which to cache network requests across invocations.'
+      'If given, a file in which to cache network requests across invocations.',
     ) do |p|
       cache_filename = Arg
         .name(cache_flag)
@@ -1899,7 +1910,7 @@ def parse_config_from_args(
     opts.on(
       '-c COUNTRY',
       "#{country_flag} COUNTRY",
-      'The country for which to fetch data, one of USA or CAN.'
+      'The country for which to fetch data, one of USA or CAN.',
     ) do |s|
       config.country = Arg
         .name(country_flag)
@@ -1913,7 +1924,7 @@ def parse_config_from_args(
     opts.on(
       '-p CODE',
       "#{postal_code_flag} CODE",
-      'The postal code for which to fetch data. Something like `12345` for the USA or `A1A 1A1` for Canada.`'
+      'The postal code for which to fetch data. Something like `12345` for the USA or `A1A 1A1` for Canada.`',
     ) do |s|
       config.postal_code = Arg
         .name(postal_code_flag)
@@ -1926,8 +1937,8 @@ def parse_config_from_args(
     show_provider_info_flag = '--show-providers'
     opts.on(
       show_provider_info_flag,
-      "Output provider information for the given #{country_flag} and #{postal_code_flag} values."
-    ) do |s|
+      "Output provider information for the given #{country_flag} and #{postal_code_flag} values.",
+    ) do |_s|
       config[:return_providers?] = true
     end
 
@@ -1935,7 +1946,7 @@ def parse_config_from_args(
     opts.on(
       '-r ID',
       "#{provider_id_flag} ID",
-      "The provider id for which to fetch data, obtained with the help of the #{show_provider_info_flag} flag."
+      "The provider id for which to fetch data, obtained with the help of the #{show_provider_info_flag} flag.",
     ) do |s|
       config.provider_id = Arg
         .name(provider_id_flag)
@@ -1955,7 +1966,7 @@ def parse_config_from_args(
     channels_flag = '--channels'
     opts.on(
       "#{channels_flag} CHANNELS",
-      "A comma-delimited list of channel call signs, numbers, and/or ids for which to download data. If non are provided, all available channels will be downloaded.",
+      'A comma-delimited list of channel call signs, numbers, and/or ids for which to download data. If non are provided, all available channels will be downloaded.',
     ) do |s|
       raw_channels = Arg
         .name(channels_flag)
@@ -2019,8 +2030,8 @@ def fetch(
       end
 
       u
-    rescue URI::InvalidURIError => err
-      raise ArgumentError, "Invalid URI from path #{full_path.inspect}: #{err}"
+    rescue URI::InvalidURIError => e
+      raise ArgumentError, "Invalid URI from path #{full_path.inspect}: #{e}"
     end
 
   LOG.info do
@@ -2033,7 +2044,7 @@ def fetch(
     u, # The full request URL
     URI.encode_www_form(data || {}), # POST data for the request, if any
     format: :base64,
-    length: 32
+    length: 32,
   )
 
   # If a request has failed a full retry cycle recently, ignore it and
@@ -2047,7 +2058,7 @@ def fetch(
   LOG.debug do
     parts = ["Looking up request to #{uri}"]
     parts << " with data #{URI.encode_www_form(data)}" unless data.nil?
-    parts << " in cache"
+    parts << ' in cache'
     parts.join
   end
   cache.fetch(cache_key, ttl_seconds) do
@@ -2097,9 +2108,8 @@ def fetch(
               method,
               uri.request_uri,
               body_data,
-
               # As a good netizen, we identify ourself unambiguously.
-              { 'User-Agent' => VERSION_INFO }
+              { 'User-Agent' => VERSION_INFO },
             )
           end
 
@@ -2118,7 +2128,7 @@ def fetch(
             Net::WriteTimeout,
             SocketError,
             OpenSSL::SSL::SSLError \
-            => err
+            => e
           # If we've failed too many times or aren't supposed to retry, give up.
           if attempts > 5 || (method == :POST && !should_retry_posts)
             LOG.debug do
@@ -2135,12 +2145,12 @@ def fetch(
 
             # Convert to `IOError` so we can easily handle this in the caller if
             # desired.
-            raise IOError, "Failed to make HTTP #{method} request to URI #{uri}: #{err}"
+            raise IOError, "Failed to make HTTP #{method} request to URI #{uri}: #{e}"
           end
 
-          LOG.warn("Got non-successful HTTP response (#{err}); retrying (attempts so far: #{attempts})")
+          LOG.warn("Got non-successful HTTP response (#{e}); retrying (attempts so far: #{attempts})")
 
-          backoff_seconds = 2 ** attempts
+          backoff_seconds = 2**attempts
           LOG.debug("Backing off for #{backoff_seconds}s before retrying HTTP #{method} request to URI #{uri}")
           sleep(backoff_seconds)
 
@@ -2186,13 +2196,13 @@ def fetch_json(
     data: data,
     cache: cache,
     ttl_seconds: ttl_seconds,
-    should_retry_posts: should_retry_posts
+    should_retry_posts: should_retry_posts,
   )
 
   begin
     LOG.debug('Attempting to parse response body as JSON')
     JSON.parse(body, symbolize_names: true)
-  rescue JSON::ParserError => err
+  rescue JSON::ParserError => e
     LOG.warn('Failed initial parse of response body, retrying with corrected body')
 
     # Guess what? Sometimes, the API returns improperly-escaped JSON
@@ -2229,98 +2239,6 @@ def fetch_json(
   end
 end
 
-# Retrieves the Wikitext content from the given page info with revisions if it
-# has any, otherwise returns `nil`.
-def get_page_content(
-  page_info # Wikipedia page info JSON response
-) # String | nil
-  page_content_container = page_info.dig(:revisions, 0, :slots, :main)
-  return nil if page_content_container.nil?
-
-  # We expect only Wikitext content and fail on anything else.
-  return nil unless page_content_container.fetch(:contentformat) == 'text/x-wiki'
-
-  page_content_container.fetch(:content)
-end
-
-# Parse all the links from the given page's content, if any, returning up to
-# `limit` of them (default no limit).
-def get_page_link_titles(
-  page_info, # Wikipedia page info JSON response
-  limit: 999_999_999
-) # Array<String>, possibly empty
-  # Parse the page content to find links, returning them if found.
-  page_content = get_page_content(page_info)
-  return [] if page_content.nil?
-
-  # This doesn't perfectly match all links since it'll probably miss those with
-  # `]` or `|` in their titles, but it's good enough for our purposes.
-  page_content
-    .scan(
-      %r[
-        # Link open token
-        \[\[
-
-        \s*
-
-        # One or more chars that's not a pipe or a likely close token, consuming
-        # as little as possible to obtain this (i.e. excluding trailing
-        # whitespace). This is the title of the link, i.e. the page title to
-        # which it refers.
-        (
-          [^\|\]]+?
-        )
-
-        # Optionally, a pipe followed by some more _optional_ text that's not a
-        # close token. This is the "text" of the link, what's displayed to the
-        # user if different from the title given. If a pipe with no following
-        # text is given, this gets auto-looked up from the linked page,
-        # apparently.
-        (?:
-          \s*
-
-          \|
-
-          \s*
-
-          [^\]]*
-        )?
-
-        \s*
-
-        # Link close token
-        \]\]
-      ]x
-    )
-    .lazy
-    .map(&:first) # Obtain the first group, i.e. the page title
-    .map(&:strip) # Ensure it has no extra whitespace
-    .take(limit)
-    .to_a
-end
-
-# Returns `true` when the given page info looks like it represents a television
-# station with affiliation information, `false` otherwise.
-def does_page_contain_tv_affiliation_info(
-  page_info, # Wikipedia page info JSON response
-  general_call_sign: nil # The page's call sign, ignored if not provided
-) # Boolean
-  # The page's title starts with our general call sign, if given.
-  has_title_prefix =
-    if general_call_sign.nil?
-      true
-    else
-      page_info.fetch(:title).start_with?(general_call_sign)
-    end
-
-  # The page content looks like it probably contains the TV station affiliation
-  # information template.
-  page_content = get_page_content(page_info)
-  has_tv_info = /\{\{\s*#{Regexp.escape(WIKIPEDIA_TV_STATION_INFOBOX_TEMPLATE_TITLE)}/.match?(page_content)
-
-  has_title_prefix && has_tv_info
-end
-
 # Scans the given HTML for non-nested (i.e. "leaf") tags of the given type, then
 # yields each `MatchObject` in turn. Returns the list of matched tags in the
 # order they matched.
@@ -2354,7 +2272,7 @@ def unescape_html(
     .gsub(/&nbsp;/i, ' ')
 end
 
-# Retrive the Wikipedia page information for a TV station and obtain the
+# Retrive the rabbitears.info page information for a TV station and obtain the
 # affiliate information from said page. If no affiliate information can be found
 # for the given call sign prefix, returns `nil`.
 def fetch_station_affiliate_info(
@@ -2532,7 +2450,7 @@ def fetch_station_affiliate_info(
     market_html
       .split(station_id_match.to_s, 2)
       .last,
-    'table'
+    'table',
   ).first
   if table_match.nil?
     LOG.debug('Could not find station table using matched station ID, giving up')
@@ -2587,7 +2505,6 @@ def fetch_providers(
     country,
     postal_code,
     '/gapzap/en',
-
     # This response is expected to change very infrequently, if ever.
     cache: cache,
     ttl_seconds: TimeInterval::WEEKS,
@@ -2687,7 +2604,11 @@ def fetch_channels(
     .fetch(:channels)
     .sort_by do |c|
       [
-        (Float(c.fetch(:channelNo)) rescue c.fetch(:channelNo)),
+        begin
+          Float(c.fetch(:channelNo))
+        rescue
+          c.fetch(:channelNo)
+        end,
         c.fetch(:callSign),
       ]
     end
@@ -2752,7 +2673,7 @@ def fetch_channel(
     provider,
     date,
     time_span_hours,
-    cache: cache
+    cache: cache,
   )
 
   channels.find do |channel|
@@ -2775,7 +2696,6 @@ def get_lineup_date_cache_key(
     channel.provider.country,
     channel.provider.postal_code,
     channel.provider.id,
-
     # The date string for which we want to find guide data.
     #
     # We use our own to ensure that the cached date is always consistent,
@@ -2847,7 +2767,6 @@ def fetch_program_details(
       fetch_json(
         ZAP2IT_API_HOST,
         '/gapzap_webapi/api/program/PostEpisodeGuide',
-
         data: {
           # A magical required value!
           aid: :gapzap,
@@ -2866,11 +2785,11 @@ def fetch_program_details(
         cache: cache,
         ttl_seconds: ttl_seconds,
       )
-    rescue IOError => err
+    rescue IOError => e
       # If one of these requests perma-fails, return `nil` and pretend we simply
       # couldn't find the info. Since this info is nice-to-have, we can proceed
       # without it.
-      LOG.warn("Detailed info request for series id #{series_id}, program id #{program_id}, season index #{season_index.inspect} failed: '#{err}'; returning nothing instead of exploding")
+      LOG.warn("Detailed info request for series id #{series_id}, program id #{program_id}, season index #{season_index.inspect} failed: '#{e}'; returning nothing instead of exploding")
       return nil
     end
 
@@ -2945,7 +2864,6 @@ def fetch_program_details(
       fetch_json(
         ZAP2IT_API_HOST,
         '/api/program/overviewDetails',
-
         data: {
           programSeriesID: series_id,
         },
@@ -2965,8 +2883,8 @@ def fetch_program_details(
           end
         ),
       )
-    rescue IOError => err
-      LOG.warn("Overview info request for series id #{series_id} failed with error '#{err}'; proceeding without it")
+    rescue IOError => e
+      LOG.warn("Overview info request for series id #{series_id} failed with error '#{e}'; proceeding without it")
 
       # If we can't fetch this data, ignore it since it's not critical that we
       # get it.
@@ -3176,10 +3094,9 @@ def fetch_lineup(
   # bunch of effort around effectively only being able to fetch data for "today
   # + 14 days" from zap2it and not being able to specify an arbitrary single
   # date.
-  cached_lineup_data = dates_to_fetch.inject({}) do |all, date|
+  cached_lineup_data = dates_to_fetch.each_with_object({}) do |date, all|
     cache_key = get_lineup_date_cache_key(channel, date)
     all[date] = cache.get(cache_key)
-    all
   end
 
   # If any of the dates for which we want lineup data wasn't cached, we have to
@@ -3197,7 +3114,6 @@ def fetch_lineup(
     lineup_data_for_fortnight = fetch_json(
       ZAP2IT_API_HOST,
       '/api/sslgrid',
-
       data: {
         # A magical required value!
         aid: :gapzap,
@@ -3216,7 +3132,7 @@ def fetch_lineup(
 
         # To simplify reasoning about what date(s) to return etc., we truncate
         # the current date to midnight UTC and fetch data starting then.
-        timestamp: truncate_time(now, TimeInterval::DAYS).to_i
+        timestamp: truncate_time(now, TimeInterval::DAYS).to_i,
       },
 
       should_retry_posts: true,
@@ -3247,7 +3163,7 @@ def fetch_lineup(
 
     # Now that we've (hopefully...) cached the lineup for all of our original
     # dates, we can re-fetch the data directly from the cache.
-    cached_lineup_data = cached_lineup_data.inject({}) do |all, (date, lineup_data)|
+    cached_lineup_data = cached_lineup_data.each_with_object({}) do |(date, lineup_data), all|
       # Re-fetch the data from the cache if we didn't originally find it there;
       # now that we've intentionally downloaded it from the API, it should
       # certainly exist in the cache!
@@ -3256,11 +3172,11 @@ def fetch_lineup(
       end
 
       if lineup_data.nil?
-        raise IOError, "Unexpectedly failed to look up fetched lineup data in cache for date #{date} and channel #{channel}"
+        raise IOError, 
+"Unexpectedly failed to look up fetched lineup data in cache for date #{date} and channel #{channel}"
       end
 
       all[date] = lineup_data
-      all
     end
   end
 
@@ -3276,7 +3192,7 @@ def fetch_lineup(
       end_time = Time.at(basic_program_info.fetch(:endTime)).getutc
 
       title = basic_program_info.fetch(:program).fetch(:title)
-      secondary_title =  basic_program_info.fetch(:program).fetch(:episodeTitle)
+      secondary_title = basic_program_info.fetch(:program).fetch(:episodeTitle)
       description = basic_program_info.fetch(:program).fetch(:shortDesc)
       image_url = "https://zap2it.tmsimg.com/assets/#{basic_program_info.fetch(:thumbnail)}.jpg"
 
@@ -3333,7 +3249,7 @@ def fetch_lineup(
       # _better_ than the tags we get from the enhanced info! The "enhanced"
       # tags come in something like `STEREO|CC` and have to be manually cleaned,
       # so we prefer the "basic" tags instead.
-      tags = (basic_program_info.fetch(:tag, []))
+      tags = basic_program_info.fetch(:tag, [])
         .compact
         .reject { |t| flag_tags.include?(t) }
         .map(&:strip)
@@ -3427,19 +3343,19 @@ def display_table(
   # entirely.
   max_column_value_lengths = columns.map { 0 }
   prepared_rows = [columns, *rows].map do |row|
-     row
-       .slice(0, columns.length) # Truncate to column length
-       .map(&:to_s) # Stringify contents
-       .each_with_index do |value, column_index| # Update max value size
-         value_length = value.length
-         if max_column_value_lengths[column_index] < value_length
-           max_column_value_lengths[column_index] = value_length
-         end
-       end
+    row
+      .slice(0, columns.length) # Truncate to column length
+      .map(&:to_s) # Stringify contents
+      .each_with_index do |value, column_index| # Update max value size
+        value_length = value.length
+        if max_column_value_lengths[column_index] < value_length
+          max_column_value_lengths[column_index] = value_length
+        end
+      end
   end
 
   column_padder = ' ' * column_padding
-  prepared_rows.each_with_index.map do |row, index|
+  prepared_rows.each_with_index.map do |row, _index|
     row
       .each_with_index
       .map { |r, i| r.ljust(max_column_value_lengths[i]) }
@@ -3457,11 +3373,11 @@ def display_providers(
   providers = fetch_providers(
     country,
     postal_code,
-    cache: cache
+    cache: cache,
   )
 
   display_table(
-    [:NAME, :TYPE, :ID],
+    %i[NAME TYPE ID],
     providers.map { |p| [p.name, p.type, p.id] },
   )
 end
@@ -3480,7 +3396,7 @@ def display_channels(
   )
 
   display_table(
-    [:'CALL_SIGN', :NUMBER, :NAME, :ID],
+    %i[CALL_SIGN NUMBER NAME ID],
     channels.map { |c| [c.call_sign, c.number, c.name, c.id] },
   )
 end
@@ -3505,14 +3421,14 @@ def display_lineup(
   date_format = '%Y-%m-%d'
   time_format = '%l:%M %p'
   display_table(
-    [:CHANNEL, :DATE, :START, :END, :TITLE],
+    %i[CHANNEL DATE START END TITLE],
     programs.map do |p|
       [
         p.channel.call_sign,
         p.start_time.strftime(date_format),
         p.start_time.strftime(time_format),
         p.end_time.strftime(time_format),
-        p.title
+        p.title,
       ]
     end,
   )
@@ -3548,7 +3464,7 @@ def main!
   if config.return_help_text?
     LOG.debug('Returning program help text')
 
-    $output.puts(config.option_parser.help())
+    $output.puts(config.option_parser.help)
     return
   end
 
@@ -3658,7 +3574,7 @@ def main!
     start_date = now + (day_offset * TimeInterval::DAYS)
     end_date = truncate_time(
       start_date + (days_to_fetch * TimeInterval::DAYS) - 1,
-      TimeInterval::DAYS
+      TimeInterval::DAYS,
     )
 
     output = display_lineup(
@@ -3705,7 +3621,7 @@ def main!
   start_date = now + (day_offset * TimeInterval::DAYS)
   end_date = truncate_time(
     start_date + (days_to_fetch * TimeInterval::DAYS) - 1,
-    TimeInterval::DAYS
+    TimeInterval::DAYS,
   )
 
   programs = channels.flat_map do |channel|
@@ -3723,19 +3639,19 @@ def main!
     Xml.new(
       :tv,
       {
-        source_info_url: "https://tvlistings.zap2it.com",
+        source_info_url: 'https://tvlistings.zap2it.com',
         source_info_name: 'zap2it',
         generator_info_name: PROGRAM_NAME,
         generator_info_url: 'https://github.com/jasontbradshaw/tv_grab_zap2it',
       },
       *channels.map(&:to_xml),
       *programs.map(&:to_xml),
-    )
+    ),
   )
-rescue StandardError => err
+rescue StandardError => e
   # If we explode for any reason, exit with an error status and log the error
   # appropriately.
-  LOG.fatal(err)
+  LOG.fatal(e)
 
   # Re-raise the error if we're in debug mode. This gets us nice stack trace
   # information.
